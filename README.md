@@ -1,1 +1,1 @@
-# Nexys_A7_HFT_Accelerator
+# Nexys_HFT_Accelerator
