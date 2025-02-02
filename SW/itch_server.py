@@ -15,6 +15,10 @@ DATA_PATH = Path('data')
 SOURCE_FILE_ZIPPED = '01302019.NASDAQ_ITCH50.gz'  # Example zipped file
 SOURCE_FILE = '01302019.NASDAQ_ITCH50.bin'  # Example unzipped file
 
+### if filtered data is available, use it ###
+### run get_test_data_tcp_client.py to generate the filtered file ###
+# SOURCE_FILE = '01302019.NASDAQ_ITCH50_AFECXDU.bin'  # Example filtered file
+
 # Ensure data directory exists
 DATA_PATH.mkdir(parents=True, exist_ok=True)
 FILE_NAME = DATA_PATH / SOURCE_FILE
