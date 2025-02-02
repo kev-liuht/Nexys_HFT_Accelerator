@@ -50,11 +50,16 @@ def main():
                         parser.print_human_readable_message(decoded_message)
                 
 
-                if message_type_code in ['A', 'F', 'E', 'C', 'X', 'D', 'U']:
+                if message_type_code in [b'A', b'F', b'E', b'C', b'X', b'D', b'U']:
                     # A = Add Order, F = Add Order MPID Attribution, E = Order Executed, C = Order Executed with Price
                     # X = Order Cancel, D = Order Delete, U = Order Replace
                     
                     ### ORDER BOOK HERE ###
+
+                    # example for accessing decoded message attributes
+                    if message_type_code == b'A':
+                        logging.info(f"Add Order w/o MPID Attribution: ")
+                        logging.info(f"Stock: {decoded_message.Stock}, Order Reference Number: {decoded_message.OrderReferenceNumber}, Side: {decoded_message.BuySellIndicator}, Quantity: {decoded_message.Shares}, Price: {decoded_message.Price}")
                     pass
 
                 # Move to the next message
