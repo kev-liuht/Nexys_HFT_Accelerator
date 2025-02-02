@@ -4,6 +4,11 @@ from struct import unpack
 from collections import namedtuple
 from datetime import datetime
 import socket
+import logging
+
+# Set up logging
+LOGGING_LEVEL = logging.DEBUG
+logging.basicConfig(level=LOGGING_LEVEL)
 
 # Define data path and file name as constants
 DATA_PATH = Path('data')
@@ -40,7 +45,8 @@ def main():
             print(f"Connected to {addr}")
             count = 0
 
-            while count < 10:
+            # while count < 10:
+            while True:
                 # Read message length (2 bytes, unsigned short)
                 length_bytes = file.read(2)
                 if not length_bytes:
@@ -56,12 +62,21 @@ def main():
                 # Send the message length, type, and data to the TCP client
                 try:
                     conn.sendall(length_bytes + message_type_code + message_data)
-                    print(f"Sent message {count}")
-                    print(f"Message: {message_type_code + message_data}")
+                    logging.debug(f"Sent message {count}")
+                    logging.debug(f"Message code: {message_type_code}, Message length: {message_length}")
                     count += 1
                 except BrokenPipeError:
                     print("Client disconnected.")
                     break
+                # Check for user input to reset count
+                # if count == 10:
+                #     print("Press [ENTER] to continue sending messages.")
+                #     try:
+                #         if input() == '':
+                #             count = 0
+                    
+                #     except EOFError:
+                #         pass  # Handle end of input stream gracefully
 
     print("Finished sending ITCH file.")
 

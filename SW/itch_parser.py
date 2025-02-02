@@ -74,13 +74,57 @@ class ITCHParser:
                 ],
                 'class': namedtuple('AddOrderMessage', ['MessageType', 'StockLocate', 'TrackingNumber', 'Timestamp', 'OrderReferenceNumber', 'BuySellIndicator', 'Shares', 'Stock', 'Price'])
             },
-            'X': {
-                'format': '>cHIQI',
+            'F': {
+                'format': '>cHH6sQsI8sI4s',
                 'fields': [
                     ('MessageType', ('alpha', 1)),
                     ('StockLocate', ('integer', 2)),
                     ('TrackingNumber', ('integer', 2)),
-                    ('Timestamp', ('integer', 8)),
+                    ('Timestamp', ('integer', 6)),
+                    ('OrderReferenceNumber', ('integer', 8)),
+                    ('BuySellIndicator', ('alpha', 1)),
+                    ('Shares', ('integer', 4)),
+                    ('Stock', ('alpha', 8)),
+                    ('Price', ('price_4', 4)),
+                    ('Attribution', ('alpha', 4)),
+                ],
+                'class': namedtuple('AddOrderAttributionMessage', ['MessageType', 'StockLocate', 'TrackingNumber', 'Timestamp', 'OrderReferenceNumber', 'BuySellIndicator', 'Shares', 'Stock', 'Price', 'Attribution'])
+            },
+            'E': {
+                'format': '>cHH6sQIQ',
+                'fields': [
+                    ('MessageType', ('alpha', 1)),
+                    ('StockLocate', ('integer', 2)),
+                    ('TrackingNumber', ('integer', 2)),
+                    ('Timestamp', ('integer', 6)),
+                    ('OrderReferenceNumber', ('integer', 8)),
+                    ('ExecutedShares', ('integer', 4)),
+                    ('MatchNumber', ('integer', 8)),
+                ],
+                'class': namedtuple('OrderExecutedMessage', ['MessageType', 'StockLocate', 'TrackingNumber', 'Timestamp', 'OrderReferenceNumber', 'ExecutedShares', 'MatchNumber'])
+            },
+            'C': {
+                'format': '>cHH6sQIQsI',
+                'fields': [
+                    ('MessageType', ('alpha', 1)),
+                    ('StockLocate', ('integer', 2)),
+                    ('TrackingNumber', ('integer', 2)),
+                    ('Timestamp', ('integer', 6)),
+                    ('OrderReferenceNumber', ('integer', 8)),
+                    ('ExecutedShares', ('integer', 4)),
+                    ('MatchNumber', ('integer', 8)),
+                    ('Printable', ('alpha', 1)),
+                    ('ExecutionPrice', ('price_4', 4)),
+                ],
+                'class': namedtuple('OrderExecutedWithPriceMessage', ['MessageType', 'StockLocate', 'TrackingNumber', 'Timestamp', 'OrderReferenceNumber', 'ExecutedShares', 'MatchNumber', 'Printable', 'ExecutionPrice'])
+            },
+            'X': {
+                'format': '>cHH6sQI',
+                'fields': [
+                    ('MessageType', ('alpha', 1)),
+                    ('StockLocate', ('integer', 2)),
+                    ('TrackingNumber', ('integer', 2)),
+                    ('Timestamp', ('integer', 6)),
                     ('OrderReferenceNumber', ('integer', 8)),
                     ('SharesToCancel', ('integer', 4)),
                 ],
@@ -97,19 +141,6 @@ class ITCHParser:
                 ],
                 'class': namedtuple('OrderDeleteMessage', ['MessageType', 'StockLocate', 'TrackingNumber', 'Timestamp', 'OrderReferenceNumber'])
             },
-            'E': {
-                'format': '>cHH6sQIQ',
-                'fields': [
-                    ('MessageType', ('alpha', 1)),
-                    ('StockLocate', ('integer', 2)),
-                    ('TrackingNumber', ('integer', 2)),
-                    ('Timestamp', ('integer', 6)),
-                    ('OrderReferenceNumber', ('integer', 8)),
-                    ('ExecutedShares', ('integer', 4)),
-                    ('MatchNumber', ('integer', 8)),
-                ],
-                'class': namedtuple('OrderExecutedMessage', ['MessageType', 'StockLocate', 'TrackingNumber', 'Timestamp', 'OrderReferenceNumber', 'ExecutedShares', 'MatchNumber'])
-            }
         }
 
     def convert_time(self, stamp: bytes):
@@ -141,7 +172,7 @@ class ITCHParser:
         try:
             message_unpacked = unpack(format_string, full_message)
         except Exception as e:
-            print(f"Error unpacking message type '{message_type}': {e}")
+            print(f"Error unpacking message type '{message_type}': {e}. Got {len(full_message)} bytes: {full_message}")
             return None
 
         kwargs = {}
