@@ -6,9 +6,13 @@ LOGGING_LEVEL = logging.INFO # Change to logging.INFO for less verbose logging
 LOGGING_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
 logging.basicConfig(format=LOGGING_FORMAT, level=LOGGING_LEVEL)
 
+# TCP SERVER CONFIG
+SERVER_IP = 'localhost'
+SERVER_PORT = 12345
+
 def main():
-    server_ip = 'localhost'
-    server_port = 12345  # Replace with the appropriate port number
+    server_ip = SERVER_IP
+    server_port = SERVER_PORT
     parser = ITCHParser()
     # Create a TCP/IP socket
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
