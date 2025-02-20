@@ -1,0 +1,3 @@
+source tcl_scripts/build_order_gen.tcl
+source tcl_scripts/build_qr_decomp_lin_solv.tcl
+exit
