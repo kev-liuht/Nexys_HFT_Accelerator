@@ -1,12 +1,18 @@
 `timescale 1ns / 1ps
 //////////////////////////////////////////////////////////////////////////////////
+// Company:
+// Engineer:
+//
+// Create Date: 02/17/2025 01:57:58 PM
+// Design Name: ITCH 5.0 parser
 // Module Name: parser
-// Design Name: ITCH 5.0 Message Parser
 // Project Name: Nexys_Video_HFT
+// Target Devices:
+// Tool Versions:
 // Description:
 //   Parses a subset of ITCH 5.0 messages (A, F, E, C, X, D) to extract key order information
 //   including stock ID, order reference number, number of shares, price, order type, and buy/sell side.
-//   Implements a state machine to handle message length and type decoding.
+//   Implements a state machine with both input and output backpressure.
 //   Handles irrelevant message types by skipping them.
 //
 // Inputs:
@@ -14,6 +20,7 @@
 //   data_i    : 8-bit input data stream carrying ITCH 5.0 message bytes.
 //   valid_i   : Input valid signal indicating data_i is valid.
 //   reset_n   : Active-low asynchronous reset.
+//   ready_i   : Input ready signal from consumer (output backpressure).
 //
 // Outputs:
 //   stock_id_o      : 32-bit Stock ID.
@@ -23,10 +30,13 @@
 //   order_type_o    : 4-bit Order Type (ADD_ORDER, CANCEL_ORDER, etc.).
 //   buy_sell_o      : Buy/Sell indicator (1 = Sell, 0 = Buy).
 //   valid_o         : Output valid signal, asserted for one clock cycle when output data is valid.
+//   ready_o         : Output ready signal to upstream data provider (input backpressure).
 //
 // Dependencies: None
 //
 // Revision:
+// Revision 0.03 - Fixed ready_o_next logic to prevent parser from getting stuck.
+// Revision 0.02 - Added input and output backpressure mechanisms.
 // Revision 0.01 - File Created - Initial parsing for A, F, E, C, X, D messages
 //
 //////////////////////////////////////////////////////////////////////////////////
@@ -37,20 +47,22 @@ module parser(
     input [7:0] data_i, // Renamed to data_i to avoid confusion with SystemVerilog keyword 'data'
     input valid_i,
     input reset_n,
-    output logic [31:0] stock_id_o, // Changed to logic and _o suffix for clarity
+    input ready_i,         // <--- Output Backpressure from Consumer
+    output logic [31:0] stock_id_o,
     output logic [31:0] order_ref_num_o,
     output logic [31:0] num_shares_o,
     output logic [31:0] price_o,
     output logic [3:0] order_type_o,
     output logic buy_sell_o,
-    output logic valid_o // Optional output to indicate when output data is valid
+    output logic valid_o,
+    output logic ready_o      // <--- Input Backpressure to Upstream
     );
 
     // --- State Machine Definition ---
     typedef enum logic [3:0] {
         GET_LENGTH,
         GET_MSG_TYPE,
-        
+
         // "A" message states - Add order - No MPID Atribution
         PARSE_MSG_A,
 
@@ -66,10 +78,10 @@ module parser(
         // "X" message states - Order Cancel
         PARSE_MSG_X,
 
-        // "D" message states - Order Delete          
+        // "D" message states - Order Delete
         PARSE_MSG_D,
 
-        // Irrelevant message state. Skips parsing messages we don't care about.
+        // Irrelevant message state
         PARSE_MSG_IRRELEVANT
     } parser_state_t;
 
@@ -95,8 +107,7 @@ module parser(
     // --- Internal Registers and Signals ---
     logic [7:0] message_length_reg; // Register to store the message length
     logic [7:0] message_type_reg;   // Register to store the message type
-    logic [7:0] byte_counter_reg;   // Counter to track bytes received for current message
-    logic [7:0] data_reg;          // Register to hold the incoming data byte
+    logic [15:0] byte_counter_reg;   // Counter to track bytes received for current message
 
     // --- Output Registers ---
     logic [31:0] stock_id_reg;
@@ -106,8 +117,9 @@ module parser(
     order_type_t order_type_reg;
     logic buy_sell_reg;
     logic valid_o_reg;
+    logic ready_o_reg;       // Register for ready_o output
 
-    // next state logic
+    // --- Next State Logic Signals ---
     logic [31:0] stock_id_next;
     logic [31:0] order_ref_num_next;
     logic [31:0] num_shares_next;
@@ -115,19 +127,15 @@ module parser(
     order_type_t order_type_next;
     logic buy_sell_next;
     logic valid_o_next;
-    logic [7:0] byte_counter_next;
+    logic ready_o_next;       // Next value for ready_o
+    logic [15:0] byte_counter_next;
     logic [7:0] message_length_next;
     logic [7:0]  message_type_next;
-
-    // localparam definitions
-    localparam MSG_C_NON_PRINTABLE_BYTE_INDEX = 16'h18;
-    localparam NON_PRINTABLE_BYTE_VALUE = 8'h4E;
 
 
     // --- FSM State Transition Logic (Combinational) ---
     always_comb begin
-        next_state                  = current_state; // Default: stay in the current state
-        data_reg                    = data_i;         // Latch input data for current cycle. Important for synchronous logic.
+        next_state                  = current_state;
         message_length_next         = message_length_reg;
         message_type_next           = message_type_reg;
         stock_id_next               = stock_id_reg;
@@ -137,193 +145,259 @@ module parser(
         order_type_next             = order_type_reg;
         buy_sell_next               = buy_sell_reg;
         valid_o_next                = 1'b0;
-        byte_counter_next           = byte_counter_reg;
+        ready_o_next                = 1'b1;       // Default: Parser is ready to receive data
 
         case (current_state)
             GET_LENGTH: begin
-                if (valid_i) begin
-                    message_length_next = data_reg;  // Capture entire 8-bit message length
-                    if (data_reg == 8'h0) begin
-                        next_state = GET_LENGTH; // Remain in GET_LENGTH if length is 0
+                // reset the output signals as it has been consumed
+                buy_sell_next = 0;
+                order_type_next = ERROR;
+                num_shares_next = '0;
+                order_ref_num_next = '0;
+                stock_id_next = '0;
+                message_type_next = '0;
+                price_next = '0;
+                if (valid_i && ready_o_reg) begin // Consume data only if valid and parser is ready (from previous cycle)
+                    message_length_next = data_i;  // Capture entire 8-bit message length
+                    if (data_i == 8'h0) begin
+                        next_state = GET_LENGTH; // Remain in GET_LENGTH if length is 0 (consider error handling)
                     end else begin
                         next_state = GET_MSG_TYPE;
                         byte_counter_next = 16'h0; // Reset byte counter for new message
                     end
+                end else begin
+                    next_state = GET_LENGTH; // Stay in GET_LENGTH if not valid or not ready
                 end
             end
 
             GET_MSG_TYPE: begin
-                if (valid_i) begin
-                    message_type_next = data_reg;      // Store message type
+                if (valid_i && ready_o_reg) begin // Consume data only if valid and parser is ready (from previous cycle)
+                    message_type_next = data_i;      // Store message type
                     byte_counter_next = 16'h1; // Received length and type bytes
-                    case (data_reg)
+                    case (data_i)
                         MESSAGE_TYPE_A: next_state = PARSE_MSG_A;
-                        MESSAGE_TYPE_F: next_state = PARSE_MSG_F; 
+                        MESSAGE_TYPE_F: next_state = PARSE_MSG_F;
                         MESSAGE_TYPE_E: next_state = PARSE_MSG_E;
                         MESSAGE_TYPE_C: next_state = PARSE_MSG_C;
                         MESSAGE_TYPE_X: next_state = PARSE_MSG_X;
                         MESSAGE_TYPE_D: next_state = PARSE_MSG_D;
                         default: next_state = PARSE_MSG_IRRELEVANT;
                     endcase
+                end else begin
+                    next_state = GET_MSG_TYPE; // Stay in GET_MSG_TYPE if not valid or not ready
                 end
             end
 
             PARSE_MSG_A: begin
                 order_type_next = ADD_ORDER;
-                if (valid_i) begin
+                if (valid_i && ready_o_reg) begin // Consume data only if valid and parser is ready (from previous cycle)
                     case (byte_counter_reg)
-                        16'h0F: order_ref_num_next[31:24] = data_reg;
-                        16'h10: order_ref_num_next[23:16] = data_reg;
-                        16'h11: order_ref_num_next[15:8] = data_reg;
-                        16'h12: order_ref_num_next[7:0] = data_reg;
-                        16'h13: buy_sell_next = data_reg[0];         // 0 = Buy, 1 = Sell. 'B' has 0 for LSB, 'S' has 1
-                        16'h14: num_shares_next[31:24] = data_reg;
-                        16'h15: num_shares_next[23:16] = data_reg;
-                        16'h16: num_shares_next[15:8] = data_reg;
-                        16'h17: num_shares_next[7:0] = data_reg;
-                        16'h18: stock_id_next[31:24] = data_reg;
-                        16'h19: stock_id_next[23:16] = data_reg;
-                        16'h1A: stock_id_next[15:8] = data_reg;
-                        16'h1B: stock_id_next[7:0] = data_reg;
-                        16'h20: price_next[31:24] = data_reg;
-                        16'h21: price_next[23:16] = data_reg;
-                        16'h22: price_next[15:8] = data_reg;
-                        16'h23: price_next[7:0] = data_reg;
+                        16'h0F: order_ref_num_next[31:24] = data_i;
+                        16'h10: order_ref_num_next[23:16] = data_i;
+                        16'h11: order_ref_num_next[15:8] = data_i;
+                        16'h12: order_ref_num_next[7:0] = data_i;
+                        16'h13: buy_sell_next = data_i[0];         // 0 = Buy, 1 = Sell. 'B' has 0 for LSB, 'S' has 1
+                        16'h14: num_shares_next[31:24] = data_i;
+                        16'h15: num_shares_next[23:16] = data_i;
+                        16'h16: num_shares_next[15:8] = data_i;
+                        16'h17: num_shares_next[7:0] = data_i;
+                        16'h18: stock_id_next[31:24] = data_i;
+                        16'h19: stock_id_next[23:16] = data_i;
+                        16'h1A: stock_id_next[15:8] = data_i;
+                        16'h1B: stock_id_next[7:0] = data_i;
+                        16'h20: price_next[31:24] = data_i;
+                        16'h21: price_next[23:16] = data_i;
+                        16'h22: price_next[15:8] = data_i;
+                        16'h23: price_next[7:0] = data_i;
 
                         default: ; // Do nothing
                     endcase
-                    byte_counter_next = byte_counter_reg + 1;
-                    if (byte_counter_next == message_length_reg) begin
+                    if (byte_counter_next < message_length_reg)
+                    begin
+                            byte_counter_next = byte_counter_reg + 1;
+                    end
+                end 
+                if (byte_counter_next == message_length_reg) begin
+                    if (ready_i) begin      // Output backpressure check
                         next_state = GET_LENGTH;
-                        valid_o_next = 1'b1; // Output is valid after all data is received
+                        valid_o_next = 1'b1; // Output is valid only if consumer is ready
+                    end else begin
+                        next_state = PARSE_MSG_A; // Stay in PARSE_MSG_A due to output backpressure
+                        ready_o_next = 1'b0;     // <--- Set ready_o to 0 due to output backpressure
+                        valid_o_next = 1'b0;
                     end
                 end
             end
 
-            PARSE_MSG_F: begin
+            PARSE_MSG_F: begin // Similar to PARSE_MSG_A - apply same ready_o logic
                 order_type_next = ADD_ORDER;
-                if (valid_i) begin
+                if (valid_i && ready_o_reg) begin
                     case (byte_counter_reg)
-                        16'h0F: order_ref_num_next[31:24] = data_reg;
-                        16'h10: order_ref_num_next[23:16] = data_reg;
-                        16'h11: order_ref_num_next[15:8] = data_reg;
-                        16'h12: order_ref_num_next[7:0] = data_reg;
-                        16'h13: buy_sell_next = data_reg[0];         // 0 = Buy, 1 = Sell. 'B' has 0 for LSB, 'S' has 1
-                        16'h14: num_shares_next[31:24] = data_reg;
-                        16'h15: num_shares_next[23:16] = data_reg;
-                        16'h16: num_shares_next[15:8] = data_reg;
-                        16'h17: num_shares_next[7:0] = data_reg;
-                        16'h18: stock_id_next[31:24] = data_reg;
-                        16'h19: stock_id_next[23:16] = data_reg;
-                        16'h1A: stock_id_next[15:8] = data_reg;
-                        16'h1B: stock_id_next[7:0] = data_reg;
-                        16'h20: price_next[31:24] = data_reg;
-                        16'h21: price_next[23:16] = data_reg;
-                        16'h22: price_next[15:8] = data_reg;
-                        16'h23: price_next[7:0] = data_reg;
+                        16'h0F: order_ref_num_next[31:24] = data_i;
+                        16'h10: order_ref_num_next[23:16] = data_i;
+                        16'h11: order_ref_num_next[15:8] = data_i;
+                        16'h12: order_ref_num_next[7:0] = data_i;
+                        16'h13: buy_sell_next = data_i[0];         // 0 = Buy, 1 = Sell. 'B' has 0 for LSB, 'S' has 1
+                        16'h14: num_shares_next[31:24] = data_i;
+                        16'h15: num_shares_next[23:16] = data_i;
+                        16'h16: num_shares_next[15:8] = data_i;
+                        16'h17: num_shares_next[7:0] = data_i;
+                        16'h18: stock_id_next[31:24] = data_i;
+                        16'h19: stock_id_next[23:16] = data_i;
+                        16'h1A: stock_id_next[15:8] = data_i;
+                        16'h1B: stock_id_next[7:0] = data_i;
+                        16'h20: price_next[31:24] = data_i;
+                        16'h21: price_next[23:16] = data_i;
+                        16'h22: price_next[15:8] = data_i;
+                        16'h23: price_next[7:0] = data_i;
 
                         default: ; // Do nothing
                     endcase
-                    byte_counter_next = byte_counter_reg + 1;
-                    if (byte_counter_next == message_length_reg) begin
+                    if (byte_counter_next < message_length_reg)
+                    begin
+                            byte_counter_next = byte_counter_reg + 1;
+                    end
+                end
+                if (byte_counter_next == message_length_reg) begin
+                    if (ready_i) begin
                         next_state = GET_LENGTH;
-                        valid_o_next = 1'b1; // Output is valid after all data is received
+                        valid_o_next = 1'b1;
+                    end else begin
+                        next_state = PARSE_MSG_F;
+                        ready_o_next = 1'b0;     // <--- Set ready_o to 0 due to output backpressure
+                        valid_o_next = 1'b0;
                     end
                 end
             end
 
-            PARSE_MSG_E: begin
+            PARSE_MSG_E: begin // Similar to PARSE_MSG_A - apply same ready_o logic
                 order_type_next = EXECUTE_ORDER;
-                if (valid_i) begin
+                if (valid_i && ready_o_reg) begin
                     case (byte_counter_reg)
-                        16'h0F: order_ref_num_next[31:24] = data_reg;
-                        16'h10: order_ref_num_next[23:16] = data_reg;
-                        16'h11: order_ref_num_next[15:8] = data_reg;
-                        16'h12: order_ref_num_next[7:0] = data_reg;
-                        16'h13: num_shares_next[31:24] = data_reg;
-                        16'h14: num_shares_next[23:16] = data_reg;
-                        16'h15: num_shares_next[15:8] = data_reg;
-                        16'h16: num_shares_next[7:0] = data_reg;
+                        16'h0F: order_ref_num_next[31:24] = data_i;
+                        16'h10: order_ref_num_next[23:16] = data_i;
+                        16'h11: order_ref_num_next[15:8] = data_i;
+                        16'h12: order_ref_num_next[7:0] = data_i;
+                        16'h13: num_shares_next[31:24] = data_i;
+                        16'h14: num_shares_next[23:16] = data_i;
+                        16'h15: num_shares_next[15:8] = data_i;
+                        16'h16: num_shares_next[7:0] = data_i;
 
                         default: ; // Do nothing
                     endcase
-                    byte_counter_next = byte_counter_reg + 1;
-                    if (byte_counter_next == message_length_reg ) begin
+                    if (byte_counter_next < message_length_reg)
+                    begin
+                            byte_counter_next = byte_counter_reg + 1;
+                    end
+                end
+                if (byte_counter_next == message_length_reg ) begin
+                    if (ready_i) begin
                         next_state = GET_LENGTH;
-                        valid_o_next = 1'b1; // Output is valid after all data is received
+                        valid_o_next = 1'b1;
+                    end else begin
+                        next_state = PARSE_MSG_E;
+                        ready_o_next = 1'b0;     // <--- Set ready_o to 0 due to output backpressure
+                        valid_o_next = 1'b0;
                     end
                 end
             end
 
-            PARSE_MSG_C: begin
+            PARSE_MSG_C: begin // Similar to PARSE_MSG_A - apply same ready_o logic
                 order_type_next = EXECUTE_ORDER;
-                if (valid_i) begin
+                if (valid_i && ready_o_reg) begin
                     case (byte_counter_reg)
-                        16'h0F: order_ref_num_next[31:24] = data_reg;
-                        16'h10: order_ref_num_next[23:16] = data_reg;
-                        16'h11: order_ref_num_next[15:8] = data_reg;
-                        16'h12: order_ref_num_next[7:0] = data_reg;
-                        16'h13: num_shares_next[31:24] = data_reg;
-                        16'h14: num_shares_next[23:16] = data_reg;
-                        16'h15: num_shares_next[15:8] = data_reg;
-                        16'h16: num_shares_next[7:0] = data_reg;
-                        16'h20: price_next[31:24] = data_reg;
-                        16'h21: price_next[23:16] = data_reg;
-                        16'h22: price_next[15:8] = data_reg;
-                        16'h23: price_next[7:0] = data_reg;
+                        16'h0F: order_ref_num_next[31:24] = data_i;
+                        16'h10: order_ref_num_next[23:16] = data_i;
+                        16'h11: order_ref_num_next[15:8] = data_i;
+                        16'h12: order_ref_num_next[7:0] = data_i;
+                        16'h13: num_shares_next[31:24] = data_i;
+                        16'h14: num_shares_next[23:16] = data_i;
+                        16'h15: num_shares_next[15:8] = data_i;
+                        16'h16: num_shares_next[7:0] = data_i;
+                        16'h20: price_next[31:24] = data_i;
+                        16'h21: price_next[23:16] = data_i;
+                        16'h22: price_next[15:8] = data_i;
+                        16'h23: price_next[7:0] = data_i;
 
                         default: ; // Do nothing
                     endcase
-                    byte_counter_next = byte_counter_reg + 1;
-                    if (byte_counter_next == message_length_reg ) begin
+                    if (byte_counter_next < message_length_reg)
+                    begin
+                            byte_counter_next = byte_counter_reg + 1;
+                    end
+                end
+                if (byte_counter_next == message_length_reg ) begin
+                    if (ready_i) begin
                         next_state = GET_LENGTH;
-                        valid_o_next = 1'b1; // Output is valid after all data is received
+                        valid_o_next = 1'b1;
+                    end else begin
+                        next_state = PARSE_MSG_C;
+                        ready_o_next = 1'b0;     // <--- Set ready_o to 0 due to output backpressure
+                        valid_o_next = 1'b0;
                     end
-                    // check for non-printable messages (when data_reg = 'N'). If found, go to irrelevant state to avoid double counting
-                    if (byte_counter_reg == MSG_C_NON_PRINTABLE_BYTE_INDEX  && data_reg == NON_PRINTABLE_BYTE_VALUE ) begin
-                        next_state = PARSE_MSG_IRRELEVANT;
-                    end
+                end
+                // check for non-printable messages. If found, go to irrelevant state to avoid double counting
+                if (byte_counter_reg == 16'h19 - 1 && data_i == 8'h4E) begin
+                    next_state = PARSE_MSG_IRRELEVANT;
                 end
             end
 
-            PARSE_MSG_X: begin
+            PARSE_MSG_X: begin // Similar to PARSE_MSG_A - apply same ready_o logic
                 order_type_next = CANCEL_ORDER;
-                if (valid_i) begin
+                if (valid_i && ready_o_reg) begin
                     case (byte_counter_reg)
-                        16'h0F: order_ref_num_next[31:24] = data_reg;
-                        16'h10: order_ref_num_next[23:16] = data_reg;
-                        16'h11: order_ref_num_next[15:8] = data_reg;
-                        16'h12: order_ref_num_next[7:0] = data_reg;
-                        16'h13: num_shares_next[31:24] = data_reg;
-                        16'h14: num_shares_next[23:16] = data_reg;
-                        16'h15: num_shares_next[15:8] = data_reg;
-                        16'h16: num_shares_next[7:0] = data_reg;
+                        16'h0F: order_ref_num_next[31:24] = data_i;
+                        16'h10: order_ref_num_next[23:16] = data_i;
+                        16'h11: order_ref_num_next[15:8] = data_i;
+                        16'h12: order_ref_num_next[7:0] = data_i;
+                        16'h13: num_shares_next[31:24] = data_i;
+                        16'h14: num_shares_next[23:16] = data_i;
+                        16'h15: num_shares_next[15:8] = data_i;
+                        16'h16: num_shares_next[7:0] = data_i;
 
                         default: ; // Do nothing
                     endcase
-                    byte_counter_next = byte_counter_reg + 1;
-                    if (byte_counter_next == message_length_reg ) begin
+                    if (byte_counter_next < message_length_reg)
+                    begin
+                            byte_counter_next = byte_counter_reg + 1;
+                    end
+                end
+                if (byte_counter_next == message_length_reg ) begin
+                    if (ready_i) begin
                         next_state = GET_LENGTH;
-                        valid_o_next = 1'b1; // Output is valid after all data is received
+                        valid_o_next = 1'b1;
+                    end else begin
+                        next_state = PARSE_MSG_X;
+                        ready_o_next = 1'b0;     // <--- Set ready_o to 0 due to output backpressure
+                        valid_o_next = 1'b0;
                     end
                 end
             end
 
-            PARSE_MSG_D: begin
+            PARSE_MSG_D: begin // Similar to PARSE_MSG_A - apply same ready_o logic
                 order_type_next = DELETE_ORDER;
-                if (valid_i) begin
+                if (valid_i && ready_o_reg) begin
                     case (byte_counter_reg)
-                        16'h0F: order_ref_num_next[31:24] = data_reg;
-                        16'h10: order_ref_num_next[23:16] = data_reg;
-                        16'h11: order_ref_num_next[15:8] = data_reg;
-                        16'h12: order_ref_num_next[7:0] = data_reg;
+                        16'h0F: order_ref_num_next[31:24] = data_i;
+                        16'h10: order_ref_num_next[23:16] = data_i;
+                        16'h11: order_ref_num_next[15:8] = data_i;
+                        16'h12: order_ref_num_next[7:0] = data_i;
 
                         default: ; // Do nothing
                     endcase
-                    byte_counter_next = byte_counter_reg + 1;
-                    if (byte_counter_next == message_length_reg ) begin
+                    if (byte_counter_next < message_length_reg)
+                    begin
+                            byte_counter_next = byte_counter_reg + 1;
+                    end
+                end
+                if (byte_counter_next == message_length_reg ) begin
+                    if (ready_i) begin
                         next_state = GET_LENGTH;
-                        valid_o_next = 1'b1; // Output is valid after all data is received
+                        valid_o_next = 1'b1;
+                    end else begin
+                        next_state = PARSE_MSG_D;
+                        ready_o_next = 1'b0;     // <--- Set ready_o to 0 due to output backpressure
+                        valid_o_next = 1'b0;
                     end
                 end
             end
@@ -338,11 +412,13 @@ module parser(
                 buy_sell_next = 1'b0;
                 valid_o_next = 1'b0;
                 // check for end of message
-                if (valid_i) begin
+                if (valid_i && ready_o_reg) begin // Consume data only if valid and parser is ready
                     byte_counter_next = byte_counter_reg + 1;
                     if (byte_counter_next == message_length_reg) begin
                         next_state = GET_LENGTH;
                     end
+                end else begin
+                    next_state = PARSE_MSG_IRRELEVANT; // Stay in IRRELEVANT if not valid or not ready
                 end
             end
 
@@ -364,15 +440,17 @@ module parser(
             order_type_reg    <= ERROR;
             buy_sell_reg      <= 1'b0;
             valid_o_reg       <= 1'b0;
+            ready_o_reg       <= 1'b1; // Initialize ready_o to high (ready) on reset
         end else begin
             current_state     <= next_state;
-            stock_id_reg      <= stock_id_next; // Hold output if not valid, else update
+            stock_id_reg      <= stock_id_next;
             order_ref_num_reg <= order_ref_num_next;
             num_shares_reg    <= num_shares_next;
             price_reg         <= price_next;
             order_type_reg    <= order_type_next;
             buy_sell_reg      <= buy_sell_next;
-            valid_o_reg       <= valid_o_next; // Keep valid_o asserted for one cycle when data is ready
+            valid_o_reg       <= valid_o_next;
+            ready_o_reg       <= ready_o_next; // Update ready_o register
             byte_counter_reg  <= byte_counter_next;
             message_length_reg <= message_length_next;
             message_type_reg   <= message_type_next;
@@ -387,5 +465,6 @@ module parser(
     assign order_type_o    = order_type_reg;
     assign buy_sell_o      = buy_sell_reg;
     assign valid_o         = valid_o_reg;
+    assign ready_o         = ready_o_reg; // Assign ready_o output
 
 endmodule
