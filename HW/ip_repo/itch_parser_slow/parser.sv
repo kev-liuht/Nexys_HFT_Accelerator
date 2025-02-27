@@ -352,7 +352,7 @@ module parser(
                     end
                 end
                 // check for non-printable messages. If found, go to irrelevant state to avoid double counting
-                if (byte_counter_reg == 16'h19 - 1 && data_i_reg == 8'h4E) begin
+                if (byte_counter_reg == 16'h1F && data_i_reg == 8'h4E) begin
                     next_state = PARSE_MSG_IRRELEVANT;
                 end
             end
