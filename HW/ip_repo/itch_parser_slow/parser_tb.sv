@@ -199,11 +199,11 @@ module tb_parser;
           data_i  = message[i];
           valid_i = 1;
       end
-//      @(posedge clk);
-//      valid_i = 0;
+      @(posedge clk);
+      valid_i = 0;
     end
-    @(posedge clk);
-    valid_i = 0;
+//    @(posedge clk);
+//    valid_i = 0;
   endtask
   
   //--------------------------------------------------------------------------
