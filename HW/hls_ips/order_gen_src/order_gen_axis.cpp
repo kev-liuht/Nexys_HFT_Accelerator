@@ -95,7 +95,7 @@ void order_gen_axis(
     hls::stream<ap_uint<32> >& in_stream_weights,       // 4 words; Q16.16 fixed-point weights
     hls::stream<ap_uint<32> >& in_stream_stock_prices,    // 4 words; price*10000 format
     hls::stream<ap_uint<32> >& out_stream_portfolio,      // 1 word; portfolio value (price*10000)
-    hls::stream<ap_uint<32> >& out_stream_ouch,           // 12 words per order message
+    hls::stream<ap_uint<32> >& out_stream_ouch           // 12 words per order message
 )
 {
 #pragma HLS INTERFACE axis port=in_stream_weights
