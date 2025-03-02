@@ -71,7 +71,7 @@ extern "C" void qr_decomp_lin_solv_axis(
 ) {
 #pragma HLS INTERFACE axis port=in_stream
 #pragma HLS INTERFACE axis port=out_stream
-#pragma HLS INTERFACE ap_ctrl_hs port=return
+#pragma HLS INTERFACE ap_ctrl_none port=return
 
     fix_t K[4][4];
     // Read 16 matrix elements from in_stream

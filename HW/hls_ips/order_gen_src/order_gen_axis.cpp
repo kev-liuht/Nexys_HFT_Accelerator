@@ -104,7 +104,7 @@ void order_gen_axis(
 #pragma HLS INTERFACE axis port=in_stream_stock_prices
 #pragma HLS INTERFACE axis port=out_stream_portfolio
 #pragma HLS INTERFACE axis port=out_stream_ouch
-#pragma HLS INTERFACE ap_ctrl_hs port=return
+#pragma HLS INTERFACE ap_ctrl_none port=return
 
     // Persistent internal state: holdings for each stock and available cash.
     static unsigned int holdings[NUM_STOCKS] = {0, 0, 0, 0};
