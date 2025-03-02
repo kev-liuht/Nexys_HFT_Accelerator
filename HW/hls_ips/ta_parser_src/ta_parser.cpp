@@ -22,6 +22,7 @@ extern "C" void ta_parser(
 #pragma HLS INTERFACE axis port=out_stream_cov
 #pragma HLS INTERFACE axis port=out_stream_og
 #pragma HLS INTERFACE ap_ctrl_none port=return
+	static unsigned int num_updates = 0;
 
     axis_word_t price_ask[NUM_STOCKS][5], quantity_ask[NUM_STOCKS][5];
     axis_word_t price_bid[NUM_STOCKS][5], quantity_bid[NUM_STOCKS][5];
@@ -71,6 +72,16 @@ extern "C" void ta_parser(
         temp.last = (i == NUM_STOCKS - 1) ? 1 : 0;  // Set last flag on last element
 
         out_stream_cov.write(temp);
-        out_stream_og.write(temp);
     }
+
+    if (num_updates > 0) {
+    	for (int i = 0; i < NUM_STOCKS; i++) {
+    		axis_word_t temp;
+			temp.data = to_uint32(market_prices[i]);
+			temp.last = (i == NUM_STOCKS - 1) ? 1 : 0;  // Set last flag on last element
+
+			out_stream_og.write(temp);
+    	}
+    }
+    num_updates++;
 }
