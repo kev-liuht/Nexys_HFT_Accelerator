@@ -8,6 +8,11 @@
 
 typedef ap_fixed<32,16> fixed16_16;
 
+struct axis_word_t {
+    ap_uint<32> data;
+    ap_uint<1>  last;
+};
+
 // Helper function for packaging OUCH 5.0 messages.
 void pack_order(
     unsigned int userRefNum,
@@ -94,17 +99,15 @@ extern "C" {
 void order_gen_axis(
     hls::stream<ap_uint<32> >& in_stream_weights,       // 4 words; Q16.16 fixed-point weights
     hls::stream<ap_uint<32> >& in_stream_stock_prices,    // 4 words; price*10000 format
-    hls::stream<ap_uint<32> >& out_stream_portfolio,      // 1 word; portfolio value (price*10000)
-    hls::stream<ap_uint<32> >& out_stream_ouch,           // 12 words per order message
-    ap_uint<1> ap_clk,
-    ap_uint<1> ap_rst_n
+    hls::stream<axis_word_t >& out_stream_portfolio,      // 1 word; portfolio value (price*10000)
+    hls::stream<axis_word_t >& out_stream_ouch           // 12 words per order message
 )
 {
 #pragma HLS INTERFACE axis port=in_stream_weights
 #pragma HLS INTERFACE axis port=in_stream_stock_prices
 #pragma HLS INTERFACE axis port=out_stream_portfolio
 #pragma HLS INTERFACE axis port=out_stream_ouch
-#pragma HLS INTERFACE ap_ctrl_hs port=return
+#pragma HLS INTERFACE ap_ctrl_none port=return
 
     // Persistent internal state: holdings for each stock and available cash.
     static unsigned int holdings[NUM_STOCKS] = {0, 0, 0, 0};
@@ -140,7 +143,10 @@ void order_gen_axis(
             portfolio_value += holdings[i] * stock_prices[i];
         }
         // Output current portfolio value.
-        out_stream_portfolio.write(portfolio_value);
+        axis_word_t portfolio_word;
+        portfolio_word.data = portfolio_value;
+        portfolio_word.last = 1;
+        out_stream_portfolio.write(portfolio_word);
 
         // Compute new target holdings based on the entire portfolio value.
         unsigned int new_holdings[NUM_STOCKS];
@@ -182,7 +188,10 @@ void order_gen_axis(
             userRefNum++; // Increment order identifier
             for (int j = 0; j < ORDER_MSG_WORDS; j++) {
 #pragma HLS UNROLL
-                out_stream_ouch.write(order_msg[j]);
+                axis_word_t order_word;
+                order_word.data = order_msg[j];
+                order_word.last = (j == (ORDER_MSG_WORDS - 1)) ? 1 : 0;
+                out_stream_ouch.write(order_word);
             }
         }
 
