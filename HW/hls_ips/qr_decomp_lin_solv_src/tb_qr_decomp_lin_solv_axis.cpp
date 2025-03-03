@@ -24,24 +24,11 @@ int main() {
 
     // Define the 4x4 covariance matrix in Q16.16 hex format.
     // Matrix (row-major order):
-    // Row0: 4.0,   2.0,   0.6,   1.0
-    // Row1: 2.0,   3.0,   0.5,   0.8
-    // Row2: 0.6,   0.5,   2.0,   0.7
-    // Row3: 1.0,   0.8,   0.7,   3.0
-    // Q16.16 representation:
-    // 4.0   = 4 * 65536 = 0x00040000
-    // 2.0   = 0x00020000
-    // 0.6   = 0.6 * 65536 = 39322 = 0x0000999A
-    // 1.0   = 0x00010000
-    // 3.0   = 0x00030000
-    // 0.5   = 0x00008000
-    // 0.8   = 0.8 * 65536 = 52429 = 0x0000CCCD
-    // 0.7   = 0.7 * 65536 = 45875 = 0x0000B2E3 (or use 0x0000B333 as an approximation)
     unsigned int testK_hex[4][4] = {
-        {0x00040000, 0x00020000, 0x0000999A, 0x00010000},
-        {0x00020000, 0x00030000, 0x00008000, 0x0000CCCD},
-        {0x0000999A, 0x00008000, 0x00020000, 0x0000B333},
-        {0x00010000, 0x0000CCCD, 0x0000B333, 0x00030000}
+		{0xfffffee7, 0x00000241, 0x0000011c, 0xfffffe48},
+		{0x000001af, 0xfffffc85, 0xfffffe48, 0x000002a2},
+		{0x00000113, 0xfffffdc5, 0xfffffee7, 0x000001af},
+		{0xfffffdc5, 0x00000495, 0x00000241, 0xfffffc85}
     };
 
     // Print the input matrix (hex values)
@@ -79,7 +66,7 @@ int main() {
         float weight_f = results[i].to_float();
         ap_uint<32> weight_hex = to_uint32(results[i]);
         std::cout << "w[" << i << "] = " << weight_f
-                  << " (hex: 0x" << std::hex << weight_hex << std::dec << ")\n";
+                  << " (hex: " << std::hex << weight_hex << std::dec << ")\n";
     }
 
     return 0;
