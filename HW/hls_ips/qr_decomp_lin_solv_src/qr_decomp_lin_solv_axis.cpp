@@ -26,7 +26,7 @@ fix_t to_fixed32(const ap_uint<32> &bits) {
 }
 
 // Givens based QR decomposition for the input 4x4 covariance matrix
-void givens_qr_4x4_fixed_hls(fix_t A[4][4], fix_t b[4]) {
+void givens_qr_fixed_hls(fix_t A[N][N], fix_t b[N]) {
     for (int i = 0; i < N; i++) {
         for (int j = i+1; j < N; j++) {
 #pragma HLS PIPELINE II=1
@@ -50,7 +50,7 @@ void givens_qr_4x4_fixed_hls(fix_t A[4][4], fix_t b[4]) {
 }
 
 // Back substitution
-void back_substitution_4x4_fixed(const fix_t A[4][4], const fix_t b[4], fix_t x[4]) {
+void back_substitution_fixed(const fix_t A[N][N], const fix_t b[N], fix_t x[N]) {
     for (int i = N-1; i >= 0; i--) {
         fix_t sum = 0;
         for (int j = i+1; j < N; j++) {
@@ -73,39 +73,39 @@ extern "C" void qr_decomp_lin_solv_axis(
 #pragma HLS INTERFACE axis port=out_stream
 #pragma HLS INTERFACE ap_ctrl_none port=return
 
-    fix_t K[4][4];
+    fix_t K[N][N];
     // Read 16 matrix elements from in_stream
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
 #pragma HLS PIPELINE II=1
             axis_word_t in_val = in_stream.read();
             K[i][j] = to_fixed32(in_val.data);
         }
     }
     // Define b = [1,1,1,1].
-    fix_t b[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-    givens_qr_4x4_fixed_hls(K, b);
+    fix_t b[N] = {1.0f, 1.0f, 1.0f, 1.0f};
+    givens_qr_fixed_hls(K, b);
 
     // Solve for x using back substitution
-    fix_t x[4];
-    for (int i = 0; i < 4; i++) { x[i] = 0; }
-    back_substitution_4x4_fixed(K, b, x);
+    fix_t x[N];
+    for (int i = 0; i < N; i++) { x[i] = 0; }
+    back_substitution_fixed(K, b, x);
 
     // Normalize x so that the sum equals 1
     fix_t sumx = 0;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < N; i++) {
 #pragma HLS PIPELINE II=1
         sumx += x[i];
     }
     if (sumx != 0) {
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < N; i++) {
 #pragma HLS PIPELINE II=1
             x[i] = x[i] / sumx;
         }
     }
 
     // Write out the normalized weights
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < N; i++) {
 #pragma HLS PIPELINE II=1
         axis_word_t out_val;
         out_val.data = to_uint32(x[i]);
