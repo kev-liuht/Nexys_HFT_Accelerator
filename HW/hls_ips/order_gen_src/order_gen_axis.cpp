@@ -89,18 +89,20 @@ void pack_order(
 }
 
 // Top-level function: order_gen_axis
-/* This function receives new target portfolio weights and stock prices,
-   calculates the current portfolio value (cash + market value of holdings),
-   then rebalances the portfolio by redistributing the entire portfolio value.
-   For each stock the target allocation (in dollars) is computed and converted to a
-   target integer number of shares. An order is generated based on the difference between
-   the target and current holdings. Finally, the new cash is computed as the leftover value. */
+/*
+   This function receives a new target weight vector (which updates infrequently)
+   and new stock prices (which update frequently). It latches the latest weight update.
+   Regardless of weight updates, it processes incoming price data and always outputs an updated
+   portfolio value. If a new weight vector is received in the cycle, the IP generates new OUCH orders
+   based on the updated weights (and updates holdings and cash accordingly). Otherwise, it outputs only
+   the portfolio update.
+*/
 extern "C" {
 void order_gen_axis(
     hls::stream<ap_uint<32> >& in_stream_weights,       // 4 words; Q16.16 fixed-point weights
     hls::stream<ap_uint<32> >& in_stream_stock_prices,    // 4 words; price*10000 format
     hls::stream<axis_word_t >& out_stream_portfolio,      // 1 word; portfolio value (price*10000)
-    hls::stream<axis_word_t >& out_stream_ouch           // 12 words per order message
+    hls::stream<axis_word_t >& out_stream_ouch            // 12 words per order message
 )
 {
 #pragma HLS INTERFACE axis port=in_stream_weights
@@ -109,98 +111,101 @@ void order_gen_axis(
 #pragma HLS INTERFACE axis port=out_stream_ouch
 #pragma HLS INTERFACE ap_ctrl_none port=return
 
-    // Persistent internal state: holdings for each stock and available cash.
+    // Persistent internal state.
     static unsigned int holdings[NUM_STOCKS] = {0, 0, 0, 0};
     static unsigned int cash = 100000000;   // Initial portfolio value
-    static unsigned int userRefNum = 1;   // Unique order identifier starting point
+    static unsigned int userRefNum = 1;    // Order identifier
 
-    if (!in_stream_weights.empty() && !in_stream_stock_prices.empty()) {
-        // Read target weights.
-        ap_uint<32> weight_words[NUM_STOCKS];
-        for (int i = 0; i < NUM_STOCKS; i++) {
+    // Latch the weights: update only if new weight data is available.
+    // Initialize to zeros so that, by default, no stocks are targeted.
+    static ap_uint<32> latched_weights[NUM_STOCKS] = {0, 0, 0, 0};
+    bool new_weights = false;
+    for (int i = 0; i < NUM_STOCKS; i++) {
 #pragma HLS UNROLL
-            weight_words[i] = in_stream_weights.read();
+        if (!in_stream_weights.empty()) {
+            latched_weights[i] = in_stream_weights.read();
+            new_weights = true;
         }
-        // Read stock prices.
+    }
+
+    // Process new price data if available.
+    if (!in_stream_stock_prices.empty()) {
         ap_uint<32> price_words[NUM_STOCKS];
         for (int i = 0; i < NUM_STOCKS; i++) {
 #pragma HLS UNROLL
-            price_words[i] = in_stream_stock_prices.read();
+            if (!in_stream_stock_prices.empty())
+                price_words[i] = in_stream_stock_prices.read();
+            else
+                price_words[i] = 0;
         }
 
+        // Convert latched weights and price words.
         float target_weights[NUM_STOCKS];
         unsigned int stock_prices[NUM_STOCKS];
         for (int i = 0; i < NUM_STOCKS; i++) {
 #pragma HLS UNROLL
-            target_weights[i] = (float)weight_words[i] / 65536.0;
+            target_weights[i] = (float)latched_weights[i] / 65536.0;
             stock_prices[i] = price_words[i];
         }
 
-        // Compute current portfolio value: cash + sum(holdings * stock_price)
+        // Compute current portfolio value: cash + sum(holdings * stock_prices).
         unsigned int portfolio_value = cash;
         for (int i = 0; i < NUM_STOCKS; i++) {
 #pragma HLS UNROLL
             portfolio_value += holdings[i] * stock_prices[i];
         }
-        // Output current portfolio value.
-        axis_word_t portfolio_word;
-        portfolio_word.data = portfolio_value;
-        portfolio_word.last = 1;
-        out_stream_portfolio.write(portfolio_word);
+        // Output portfolio value
+        axis_word_t port_word;
+        port_word.data = portfolio_value;
+        port_word.last = 1;
+        out_stream_portfolio.write(port_word);
 
-        // Compute new target holdings based on the entire portfolio value.
-        unsigned int new_holdings[NUM_STOCKS];
-        unsigned int total_cost = 0;
-        // Stock symbols.
-        const char symbols[NUM_STOCKS][9] = {"AAPL    ",
-        									 "NVDA    ",
-											 "MSFT    ",
-											 "INTC    "};
-
-        for (int i = 0; i < NUM_STOCKS; i++) {
+        // If new weight update is received, then generate OUCH orders.
+        if (new_weights) {
+            unsigned int new_holdings[NUM_STOCKS];
+            unsigned int total_cost = 0;
+            const char symbols[NUM_STOCKS][9] = {"AAPL    ", "NVDA    ", "MSFT    ", "INTC    "};
+            for (int i = 0; i < NUM_STOCKS; i++) {
 #pragma HLS UNROLL
-            // Desired allocation in currency units.
-            float desired_alloc = target_weights[i] * (float)portfolio_value;
-            // Calculate target shares as the maximum whole shares that can be purchased.
-            unsigned int target_shares = (unsigned int)(desired_alloc / (float)stock_prices[i]);
-            new_holdings[i] = target_shares;
-            total_cost += target_shares * stock_prices[i];
+                float desired_alloc = target_weights[i] * (float)portfolio_value;
+                unsigned int target_shares = (unsigned int)(desired_alloc / (float)stock_prices[i]);
+                new_holdings[i] = target_shares;
+                total_cost += target_shares * stock_prices[i];
 
-            // Compute the order delta (target shares - current holdings).
-            int delta = (int)target_shares - (int)holdings[i];
-            char side;
-            unsigned int quantity;
-            if (delta > 0) {
-                side = 'B'; // BUY order
-                quantity = (unsigned int)delta;
-            } else if (delta < 0) {
-                side = 'S'; // SELL order
-                quantity = (unsigned int)(-delta);
-            } else {
-                // (Just in case) No change needed; output a dummy order.
-                side = 'N';
-                quantity = 0;
+                // Determine order delta.
+                int delta = (int)target_shares - (int)holdings[i];
+                char side;
+                unsigned int quantity;
+                if (delta > 0) {
+                    side = 'B'; // BUY
+                    quantity = (unsigned int)delta;
+                } else if (delta < 0) {
+                    side = 'S'; // SELL
+                    quantity = (unsigned int)(-delta);
+                } else {
+                    side = 'N';
+                    quantity = 0;
+                }
+
+                // Pack and output the order message.
+                ap_uint<32> order_msg[ORDER_MSG_WORDS];
+                pack_order(userRefNum, side, quantity, symbols[i], stock_prices[i], order_msg);
+                userRefNum++;
+                for (int j = 0; j < ORDER_MSG_WORDS; j++) {
+#pragma HLS UNROLL
+                    axis_word_t order_word;
+                    order_word.data = order_msg[j];
+                    order_word.last = (j == (ORDER_MSG_WORDS - 1)) ? 1 : 0;
+                    out_stream_ouch.write(order_word);
+                }
             }
-
-            // Pack the order into a 48-byte (12-word) OUCH message.
-            ap_uint<32> order_msg[ORDER_MSG_WORDS];
-            pack_order(userRefNum, side, quantity, symbols[i], stock_prices[i], order_msg);
-            userRefNum++; // Increment order identifier
-            for (int j = 0; j < ORDER_MSG_WORDS; j++) {
+            // Update internal state.
+            for (int i = 0; i < NUM_STOCKS; i++) {
 #pragma HLS UNROLL
-                axis_word_t order_word;
-                order_word.data = order_msg[j];
-                order_word.last = (j == (ORDER_MSG_WORDS - 1)) ? 1 : 0;
-                out_stream_ouch.write(order_word);
+                holdings[i] = new_holdings[i];
             }
+            cash = portfolio_value - total_cost;
         }
-
-        // Update portfolio state: set holdings to the new target and update free cash.
-        for (int i = 0; i < NUM_STOCKS; i++) {
-#pragma HLS UNROLL
-            holdings[i] = new_holdings[i];
-        }
-        cash = portfolio_value - total_cost;
     }
 }
 }
