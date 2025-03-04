@@ -25,7 +25,7 @@
 *_stub.vhdl
 *_funcsim.v
 *_funcsim.vhdl
-.project
+# .project
 
 # [dir]
 *.cache
