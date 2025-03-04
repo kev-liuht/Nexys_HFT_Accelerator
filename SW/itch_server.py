@@ -19,6 +19,8 @@ SOURCE_FILE = '01302019.NASDAQ_ITCH50.bin'  # Example unzipped file
 ### run get_test_data_tcp_client.py to generate the filtered file ###
 # SOURCE_FILE = '01302019.NASDAQ_ITCH50_AFECXDU.bin'  # Example filtered file
 
+SOURCE_FILE = 'output (1).bin'  # Example filtered file
+
 # Ensure data directory exists
 DATA_PATH.mkdir(parents=True, exist_ok=True)
 FILE_NAME = DATA_PATH / SOURCE_FILE
@@ -31,8 +33,8 @@ if not FILE_NAME.exists():
     exit()
 
 # TCP SERVER CONFIG
-HOST = 'localhost'
-PORT = 12345
+HOST = '192.168.1.11'
+PORT = 22
 
 def main():
     '''
@@ -73,14 +75,14 @@ def main():
                     print("Client disconnected.")
                     break
                 # Check for user input to reset count
-                # if count == 10:
-                #     print("Press [ENTER] to continue sending messages.")
-                #     try:
-                #         if input() == '':
-                #             count = 0
+                if count == 1:
+                    print("Press [ENTER] to continue sending messages.")
+                    try:
+                        if input() == '':
+                            count = 0
                     
-                #     except EOFError:
-                #         pass  # Handle end of input stream gracefully
+                    except EOFError:
+                        pass  # Handle end of input stream gracefully
 
     print("Finished sending ITCH file.")
 
