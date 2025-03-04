@@ -8,7 +8,7 @@ Took inspiration from [https://github.com/tobiasrj20/Vivado-Version-Control-Exam
 IF you use windows cmd, run the following line:
 
 ```
-C:\Xilinx\Vivado\2018.3\bin\vivado.bat -mode batch -source build.tcl
+C:\Xilinx\Vivado\2018.3\bin\vivado -mode batch -source build.tcl
 ```
 
 Otherwise if you open Vivado:
