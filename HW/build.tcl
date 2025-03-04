@@ -149,7 +149,7 @@ update_ip_catalog -rebuild
 set obj [get_filesets sources_1]
 # Import local files from the original project
 set files [list \
- [file normalize "${origin_dir}/src/board.prj" ]\
+ [file normalize "${origin_dir}/src/hft_block_design_mig_7series_0_0/board.prj" ]\
 ]
 set imported_files [import_files -fileset sources_1 $files]
 
