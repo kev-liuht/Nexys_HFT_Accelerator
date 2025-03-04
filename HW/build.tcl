@@ -149,8 +149,7 @@ update_ip_catalog -rebuild
 set obj [get_filesets sources_1]
 # Import local files from the original project
 set files [list \
- [file normalize "${origin_dir}/hft_accelerator_proj/hft_accelerator_proj.srcs/sources_1/bd/hft_block_design/hdl/hft_block_design_wrapper.v" ]\
- [file normalize "${origin_dir}/hft_accelerator_proj/hft_accelerator_proj.srcs/sources_1/bd/hft_block_design/ip/hft_block_design_mig_7series_0_0/board.prj" ]\
+ [file normalize "${origin_dir}/src/board.prj" ]\
 ]
 set imported_files [import_files -fileset sources_1 $files]
 
@@ -727,6 +726,10 @@ levelinfo -pg 1 0 110 410 800 1200 1710 2270 2590 2750 -top 0 -bot 1490
 cr_bd_hft_block_design ""
 set_property REGISTERED_WITH_MANAGER "1" [get_files hft_block_design.bd ] 
 set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files hft_block_design.bd ] 
+
+# Generate the bd wrapper
+set design_name [get_bd_designs]
+make_wrapper -files [get_files $design_name.bd] -top -import
 
 # Create 'synth_1' run (if not found)
 if {[string equal [get_runs -quiet synth_1] ""]} {
