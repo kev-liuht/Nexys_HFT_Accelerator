@@ -36,7 +36,9 @@ Run the following instructions every time changes have been made to the block-de
 1. File -> Project -> Write TCL
 2. Check `Copy Sources to New Project` and `Recreate Block Diagrams using TCL`
 3. Set Output File to `<path to repo>/Nexys_HFT_Accelerator/HW/build.tcl`
-4. git add the files specified by the `build.tcl` file that needs to be manually version controlled. e.g. `sources_1/bd/hft_block_design/hdl/hft_block_design_wrapper.v`
+4. Add the following lines to build.tcl
+  - Add `catch { apply_bd_automation -rule xilinx.com:bd_rule:mig_7series -config {Board_Interface "ddr3_sdram" }  [get_bd_cells mig_7series_0] }` after `# Create instance: mig_7series_0, and set properties ... ] $mig_7series_0`
+  - Add `make_wrapper -files [get_files $design_name.bd] -top -import` after `save_bd_design`
 
 ## Compiling and Building HLS IPs
 The `hls_ips` directory is configured for automated compilation and building of custom HFT IP cores using Vivado_HLS 2018.3. Follow the instructions below to organize your project files and build your IPs efficiently.

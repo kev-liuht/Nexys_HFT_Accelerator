@@ -550,6 +550,8 @@ proc create_hier_cell_microblaze_0_local_memory { parentCell nameHier } {
    CONFIG.RESET_BOARD_INTERFACE {reset} \
  ] $mig_7series_0
 
+ catch { apply_bd_automation -rule xilinx.com:bd_rule:mig_7series -config {Board_Interface "ddr3_sdram" }  [get_bd_cells mig_7series_0] }
+
   # Create instance: rst_clk_wiz_1_100M, and set properties
   set rst_clk_wiz_1_100M [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_clk_wiz_1_100M ]
   set_property -dict [ list \
@@ -720,6 +722,8 @@ levelinfo -pg 1 0 110 410 800 1200 1710 2270 2590 2750 -top 0 -bot 1490
 
   validate_bd_design
   save_bd_design
+  # generate wrapper
+  make_wrapper -files [get_files $design_name.bd] -top -import
   close_bd_design $design_name 
 }
 # End of cr_bd_hft_block_design()
@@ -727,9 +731,6 @@ cr_bd_hft_block_design ""
 set_property REGISTERED_WITH_MANAGER "1" [get_files hft_block_design.bd ] 
 set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files hft_block_design.bd ] 
 
-# Generate the bd wrapper
-set design_name [get_bd_designs]
-make_wrapper -files [get_files $design_name.bd] -top -import
 
 # Create 'synth_1' run (if not found)
 if {[string equal [get_runs -quiet synth_1] ""]} {
