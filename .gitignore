@@ -106,3 +106,6 @@ ipshared
 
 # Itch Sample Data
 /SW/data/*
+
+# Vivado SDK Elf Files
+*.elf

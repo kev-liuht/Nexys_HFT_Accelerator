@@ -1,6 +1,43 @@
 # Hardware Directory
 This directory contains the main Vivado project.
 
+## Building Project
+
+Took inspiration from [https://github.com/tobiasrj20/Vivado-Version-Control-Example/tree/master ](https://github.com/tobiasrj20/Vivado-Version-Control-Example/tree/master).
+
+IF you use windows cmd, run the following line:
+
+```
+C:\Xilinx\Vivado\2018.3\bin\vivado.bat -mode batch -source build.tcl
+```
+
+Otherwise if you open Vivado:
+
+1. Open Tcl Console (window -> Tcl Console)
+2. cd into the working directory
+3. execute `source build.tcl`
+
+### Importing version controlled project to Xilinx SDK
+
+SDK project files are located under `Nexys_HFT_Accelerator/HW/SDK`. Make sure to change the SDK Workspace to that directory (instead of <Local to Project>)
+
+1. Generate bitstream
+2. File -> Export -> Export Hardware (and check bitstream) to the SDK source file path under both "Exported location" and "Workspace"
+3. Launch SDK: File->Launch SDK Browse to the SDK source file path under both "Exported location" and "Workspace"
+4. Import Application project and BSP: File->Import->General->Existing Projects into Workspace browse to BSP folder, repeat and do the same but select the project folder (the one with your .c and .h files)
+5. Build project: Project->Build all
+6. Program FPGA: Xilinx Tools->Program FPGA
+7. Running the application: Run Configuration...
+
+### Version Control Project with TCL
+
+Run the following instructions every time changes have been made to the block-design, which requires a new `build.tcl` file.
+
+1. File -> Project -> Write TCL
+2. Check `Copy Sources to New Project` and `Recreate Block Diagrams using TCL`
+3. Set Output File to `<path to repo>/Nexys_HFT_Accelerator/HW/build.tcl`
+4. git add the files specified by the `build.tcl` file that needs to be manually version controlled. e.g. `sources_1/bd/hft_block_design/hdl/hft_block_design_wrapper.v`
+
 ## Compiling and Building HLS IPs
 The `hls_ips` directory is configured for automated compilation and building of custom HFT IP cores using Vivado_HLS 2018.3. Follow the instructions below to organize your project files and build your IPs efficiently.
 
