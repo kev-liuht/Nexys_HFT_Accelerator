@@ -52,7 +52,7 @@
     wire [7:0] data_i_parser;
     wire valid_i_parser;
     wire ready_o_parser;
-    wire ready_i_parser; // Ready from output AXI-Stream
+    wire ready_i_parser;
 
     wire [STOCK_ID_WIDTH-1:0] stock_id_o;
     wire [ORDER_REF_NUM_WIDTH-1:0] order_ref_num_o;
@@ -90,24 +90,29 @@
     );
     
     // Output AXI-Stream FSM 
+    reg ready_i_parser_reg;
     always @(posedge m00_axis_aclk) begin
         if (!m00_axis_aresetn) begin
             m00_axis_tvalid_s <= 1'b0;
             m00_axis_tdata_s <= 0;
+            ready_i_parser_reg <= 1;
         end else begin
             if (valid_o_parser && !m00_axis_tvalid_s) begin // Parser has valid data and not currently sending
                 m00_axis_tvalid_s <= 1'b1;
+                ready_i_parser_reg <= 1'b0; // backpressure until order book consumes the data
                 m00_axis_tdata_s[31:0]      <= stock_id_o;
                 m00_axis_tdata_s[63:32]     <= order_ref_num_o;
                 m00_axis_tdata_s[95:64]     <= num_shares_o;
                 m00_axis_tdata_s[127:96]    <= price_o;
                 m00_axis_tdata_s[131:128]   <= order_type_o;
                 m00_axis_tdata_s[132:132]   <= buy_sell_o;
-                m00_axis_tdata_s[135:133]   <= 3'b000;
+                m00_axis_tdata_s[135:133]   <= 3'b000;      // unused
             end else if (m00_axis_tvalid_s && m00_axis_tready) begin // Currently sending and downstream is ready
                 m00_axis_tvalid_s <= 1'b0; // Deassert valid after successful transfer
+                ready_i_parser_reg <= 1'b1;// data consumed, backpressure deasserted
             end else begin
                 m00_axis_tvalid_s <= m00_axis_tvalid_s; // Hold current valid state
+                ready_i_parser_reg <= ready_i_parser_reg;
             end
         end
     end
@@ -116,7 +121,7 @@
     assign m00_axis_tdata   = m00_axis_tdata_s;
     assign m00_axis_tstrb  = {(136/8){1'b1}}; // All bytes valid
     assign m00_axis_tlast   = 1'b1; // No TLAST for continuous stream
-    assign ready_i_parser = m00_axis_tready;
+    assign ready_i_parser = ready_i_parser_reg;
 	// User logic ends
 
 endmodule
