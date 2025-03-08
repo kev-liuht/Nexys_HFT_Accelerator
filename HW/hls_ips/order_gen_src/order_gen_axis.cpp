@@ -180,7 +180,7 @@ void order_gen_axis(
 #pragma HLS PIPELINE II=1
             axis_word_t order_word;
             order_word.data = order_msg[j];
-            order_word.last = (j == (ORDER_MSG_WORDS - 1)) ? 1 : 0;
+            order_word.last = (i == (NUM_STOCKS - 1) && j == (ORDER_MSG_WORDS - 1)) ? 1 : 0;
             out_stream_ouch.write(order_word);
         }
     }
