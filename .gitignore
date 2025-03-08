@@ -25,7 +25,7 @@
 *_stub.vhdl
 *_funcsim.v
 *_funcsim.vhdl
-.project
+# .project
 
 # [dir]
 *.cache
@@ -106,3 +106,6 @@ ipshared
 
 # Itch Sample Data
 /SW/data/*
+
+# Vivado SDK Elf Files
+*.elf

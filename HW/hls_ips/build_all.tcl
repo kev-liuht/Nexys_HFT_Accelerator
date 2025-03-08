@@ -1,5 +1,7 @@
 source tcl_scripts/build_order_gen.tcl
+source tcl_scripts/build_order_book.tcl
 source tcl_scripts/build_qr_decomp_lin_solv.tcl
 source tcl_scripts/build_cov_update.tcl
 source tcl_scripts/build_ta_parser.tcl
+source tcl_scripts/build_order_book.tcl
 exit
