@@ -99,10 +99,10 @@ void pack_order(
    generates OUCH orders and updates internal state. */
 extern "C" {
 void order_gen_axis(
-    hls::stream<ap_uint<32> >& in_stream_weights,      // 4 words; float weights (0-1)
-    hls::stream<ap_uint<32> >& in_stream_stock_prices, // 4 words; float prices
-    hls::stream<axis_word_t >& out_stream_portfolio,   // 1 word; fixed-point portfolio value (price*10000)
-    hls::stream<axis_word_t >& out_stream_ouch         // 12 words per order message
+    hls::stream<axis_word_t>& in_stream_weights,      // 4 words; float weights (0-1)
+    hls::stream<axis_word_t>& in_stream_stock_prices, // 4 words; float prices
+    hls::stream<axis_word_t>& out_stream_portfolio,   // 1 word; fixed-point portfolio value (price*10000)
+    hls::stream<axis_word_t>& out_stream_ouch         // 12 words per order message
 )
 {
 #pragma HLS INTERFACE axis port=in_stream_weights
@@ -122,7 +122,8 @@ void order_gen_axis(
 #pragma HLS ARRAY_PARTITION variable=price_vals complete dim=1
     for (int i = 0; i < NUM_STOCKS; i++){
 #pragma HLS PIPELINE II=1
-        price_vals[i] = apuint32_to_float(in_stream_stock_prices.read());
+        axis_word_t in_price_val = in_stream_stock_prices.read();
+        price_vals[i] = apuint32_to_float(in_price_val.data);
     }
 
     // Read new weight vector
@@ -130,7 +131,8 @@ void order_gen_axis(
 #pragma HLS ARRAY_PARTITION variable=weight_vals complete dim=1
     for (int i = 0; i < NUM_STOCKS; i++){
 #pragma HLS PIPELINE II=1
-        weight_vals[i] = apuint32_to_float(in_stream_weights.read());
+        axis_word_t in_weight_val = in_stream_weights.read();
+        weight_vals[i] = apuint32_to_float(in_weight_val.data);
         latched_weights[i] = weight_vals[i];
     }
 

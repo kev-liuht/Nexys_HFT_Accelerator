@@ -28,8 +28,8 @@ static inline ap_uint<32> float_to_apuint32(float in) {
 
 extern "C" {
     void order_gen_axis(
-        hls::stream<ap_uint<32> >& in_stream_weights,
-        hls::stream<ap_uint<32> >& in_stream_stock_prices,
+        hls::stream<axis_word_t>& in_stream_weights,
+        hls::stream<axis_word_t>& in_stream_stock_prices,
         hls::stream<axis_word_t>& out_stream_portfolio,
         hls::stream<axis_word_t>& out_stream_ouch
     );
@@ -37,8 +37,8 @@ extern "C" {
 
 int main(){
     srand(static_cast<unsigned int>(time(0)));
-    hls::stream<ap_uint<32> > in_stream_weights;
-    hls::stream<ap_uint<32> > in_stream_stock_prices;
+    hls::stream<axis_word_t> in_stream_weights;
+    hls::stream<axis_word_t> in_stream_stock_prices;
     hls::stream<axis_word_t> out_stream_portfolio;
     hls::stream<axis_word_t> out_stream_ouch;
     const int num_cycles = 20;
@@ -49,7 +49,10 @@ int main(){
         for (int i = 0; i < 4; i++){
             float fluctuation = 0.95f + (static_cast<float>(rand())/static_cast<float>(RAND_MAX)) * 0.10f;
             float new_price = base_prices[i] * fluctuation;
-            in_stream_stock_prices.write(float_to_apuint32(new_price));
+            axis_word_t price_word;
+            price_word.data = float_to_apuint32(new_price);
+            price_word.last = (i == 3) ? 1 : 0;
+            in_stream_stock_prices.write(price_word);
         }
 
         // Send new weight update
@@ -58,13 +61,22 @@ int main(){
             rnd[i] = static_cast<float>(rand())/static_cast<float>(RAND_MAX);
             sum += rnd[i];
         }
-        cout << "Cycle " << cycle << ": Weight update sent: ";
+        cout << "Cycle " << cycle << ": Sent weights (Decimal): ";
         for (int i = 0; i < 4; i++){
             weight_vals[i] = rnd[i] / sum;
-            in_stream_weights.write(float_to_apuint32(weight_vals[i]));
+            axis_word_t weight_word;
+            weight_word.data = float_to_apuint32(weight_vals[i]);
+            weight_word.last = (i == 3) ? 1 : 0;
+            in_stream_weights.write(weight_word);
             cout << fixed << setprecision(4) << weight_vals[i] << " ";
         }
         cout << endl;
+        cout << "Cycle " << cycle << ": Sent weights (Hex): ";
+        for (int i = 0; i < 4; i++){
+            ap_uint<32> weight_hex = float_to_apuint32(weight_vals[i]);
+            cout << setw(8) << setfill('0') << hex << weight_hex.to_uint() << " ";
+        }
+        cout << dec << endl;
 
         order_gen_axis(in_stream_weights, in_stream_stock_prices, out_stream_portfolio, out_stream_ouch);
 
