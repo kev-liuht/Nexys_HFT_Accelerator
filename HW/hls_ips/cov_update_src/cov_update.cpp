@@ -7,6 +7,11 @@
 
 #define NUM_STOCKS 4  // Number of stocks in the system
 
+struct axis_word_t {
+    ap_uint<32> data;
+    ap_uint<1> last;  // Last signal (1 if it's the last data in the stream)
+};
+
 // Converts 32-bit data to float using bitwise casting
 inline float convert_to_float(const ap_uint<32> &bits) {
     union {
