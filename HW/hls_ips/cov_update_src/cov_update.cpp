@@ -7,14 +7,8 @@
 
 #define NUM_STOCKS 4  // Number of stocks in the system
 
-// AXI-Stream word format
-struct axis_word_t {
-    ap_uint<32> data; // 32-bit data field
-    ap_uint<1> last;  // Last signal (1 if it's the last data in the stream)
-};
-
 // Converts 32-bit data to float using bitwise casting
-float convert_to_float(const ap_uint<32> &bits) {
+inline float convert_to_float(const ap_uint<32> &bits) {
     union {
         uint32_t u32;
         float f;
@@ -25,7 +19,7 @@ float convert_to_float(const ap_uint<32> &bits) {
 }
 
 // Converts float to 32-bit data using bitwise casting
-ap_uint<32> float_to_uint32(const float &val) {
+inline ap_uint<32> float_to_uint32(const float &val) {
     union {
         float f;
         uint32_t u32;
@@ -35,7 +29,7 @@ ap_uint<32> float_to_uint32(const float &val) {
     return converter.u32;
 }
 
-// Top function for covariance matrix update with AXI-Stream interface
+// Top function
 extern "C" void cov_update(
     hls::stream<axis_word_t> &in_stream,  // Input stream
     hls::stream<axis_word_t> &out_stream  // Output stream
@@ -75,7 +69,7 @@ extern "C" void cov_update(
 
     // Compute returns for each stock
     for (int i = 0; i < NUM_STOCKS; i++) {
-#pragma HLS PIPELINE II=1
+#pragma HLS UNROLL factor=2
         returns[i] = (market_prices[i] - last_prices[i]) / last_prices[i];
         last_returns[i] = (float(num_updates) * last_returns[i] + returns[i]) / float(N);  // Incremental mean update
     }
@@ -83,7 +77,7 @@ extern "C" void cov_update(
     // Update covariance matrix using incremental method
     for (int i = 0; i < NUM_STOCKS; i++) {
         for (int j = 0; j < NUM_STOCKS; j++) {
-#pragma HLS PIPELINE II=1
+#pragma HLS UNROLL factor=2
             last_second_moment[i][j] = (float(num_updates) * last_second_moment[i][j] +
                                         returns[i] * returns[j]) / float(N);
             cov_matrix[i][j] = last_second_moment[i][j] - last_returns[i] * last_returns[j];
