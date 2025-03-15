@@ -105,7 +105,7 @@ hw_handoff
 ipshared
 
 # Itch Sample Data
-/SW/data/*
+# /SW/data/*
 
 # Vivado SDK Elf Files
 *.elf
