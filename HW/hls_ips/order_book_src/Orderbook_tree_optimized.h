@@ -3,18 +3,18 @@
 // For each stock, we have 5 ask prices + 5 ask quantities + 5 bid prices + 5 bid quantities = 20
 // Each is 32 bits, so that's 20*32 bits per stock.
 
-#define NUM_STOCKS      2           // Number of distinct stocks
-#define MAX_ORDER_NUM 		32
-#define MAX_LEVELS      64        // Maximum price levels in the segment tree
-#define CACHE_SIZE      5           // Cache top-5 levels
+#define CACHE_SIZE      5
+#define NUM_STOCKS      4
+#define MIN_PRICE_INIT {100,100,100,100}
+#define TICK_INIT  {2,2,2,2}
+#define MAX_ORDER_NUM   1024
+#define MAX_LEVELS      64
 #define CMD_ADD_ORDER   0
 #define CMD_CANCEL_ORDER 1
 #define CMD_GET_TOP_5   2
-
-
-// For 'side', let's define: 0 => "bid", 1 => "ask"
 #define SIDE_BID 0
 #define SIDE_ASK 1
+
 
 
 #include <hls_stream.h>
