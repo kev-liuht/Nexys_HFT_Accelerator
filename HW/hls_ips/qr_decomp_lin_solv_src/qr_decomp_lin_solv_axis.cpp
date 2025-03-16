@@ -1,9 +1,6 @@
 #include <hls_stream.h>
 #include <ap_int.h>
-#include <ap_fixed.h>
 #include <hls_math.h>
-
-typedef ap_fixed<32,16> fix_t;
 
 struct axis_word_t {
     ap_uint<32> data;
@@ -12,21 +9,29 @@ struct axis_word_t {
 
 #define N 4
 
-// Conversion routines
-ap_uint<32> to_uint32(const fix_t &val) {
-    ap_uint<32> bits;
-    bits = val.range(31, 0);
-    return bits;
+// Convert ap_uint<32> to float
+static inline float bits_to_float(ap_uint<32> bits) {
+    union {
+        unsigned int u;
+        float f;
+    } converter;
+    converter.u = (unsigned int)(bits);
+    return converter.f;
 }
 
-fix_t to_fixed32(const ap_uint<32> &bits) {
-    fix_t val;
-    val.range(31,0) = bits;
-    return val;
+
+// Convert float to ap_uint<32>
+static inline ap_uint<32> float_to_bits(float val) {
+    union {
+        float f;
+        unsigned int u;
+    } converter;
+    converter.f = val;
+    return converter.u;
 }
 
 // Givens based QR decomposition for a 4x4 matrix
-void givens_qr_float(float A[N][N], float b[N]) {
+void givens_qr(float A[N][N], float b[N]) {
     for (int i = 0; i < N; i++) {
         for (int j = i+1; j < N; j++) {
 #pragma HLS PIPELINE II=1
@@ -50,7 +55,7 @@ void givens_qr_float(float A[N][N], float b[N]) {
 }
 
 // Back substitution
-void back_substitution_float(const float A[N][N], const float b[N], float x[N]) {
+void back_substitution(const float A[N][N], const float b[N], float x[N]) {
     for (int i = N-1; i >= 0; i--) {
         float sum = 0.0f;
         for (int j = i+1; j < N; j++) {
@@ -74,14 +79,14 @@ extern "C" void qr_decomp_lin_solv_axis(
 #pragma HLS INTERFACE axis port=out_stream
 #pragma HLS INTERFACE ap_ctrl_none port=return
 
-    // Read input matrix
+    // Read input matrix directly as float bits
     float A_f[N][N];
     for (int i = 0; i < N; i++) {
         for (int j = 0; j < N; j++) {
 #pragma HLS PIPELINE II=1
             axis_word_t in_val = in_stream.read();
-            fix_t temp_fixed = to_fixed32(in_val.data);
-            A_f[i][j] = (float)temp_fixed;
+            float temp_f = bits_to_float(in_val.data);
+            A_f[i][j] = temp_f;
         }
     }
 
@@ -89,10 +94,10 @@ extern "C" void qr_decomp_lin_solv_axis(
     float b_f[N] = {1.0f, 1.0f, 1.0f, 1.0f};
 
     // Perform QR decomposition + back substitution
-    givens_qr_float(A_f, b_f);
+    givens_qr(A_f, b_f);
     float x_f[N];
     for (int i = 0; i < N; i++) { x_f[i] = 0.0f; }
-    back_substitution_float(A_f, b_f, x_f);
+    back_substitution(A_f, b_f, x_f);
 
     // Normalize x so that the sum equals 1 (first pass)
     float sumx = 0.0f;
@@ -128,13 +133,12 @@ extern "C" void qr_decomp_lin_solv_axis(
         }
     }
 
-    // Convert float results back to Q16.16 and write out
+    // Write out results
     for (int i = 0; i < N; i++) {
 #pragma HLS PIPELINE II=1
         axis_word_t out_val;
-        fix_t out_fixed = (fix_t)x_f[i];
-        out_val.data = to_uint32(out_fixed);
-        out_val.last = (i == 3) ? ap_uint<1>(1) : ap_uint<1>(0);
+        out_val.data = float_to_bits(x_f[i]);
+        out_val.last = (i == (N-1)) ? ap_uint<1>(1) : ap_uint<1>(0);
         out_stream.write(out_val);
     }
 }

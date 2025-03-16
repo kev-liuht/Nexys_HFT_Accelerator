@@ -1,17 +1,31 @@
 #include <iostream>
+#include <iomanip>
 #include "ap_int.h"
-#include "ap_fixed.h"
 #include "hls_stream.h"
-
-typedef ap_fixed<32,16> fix_t;
 
 struct axis_word_t {
     ap_uint<32> data;
     ap_uint<1>  last;
 };
 
-extern ap_uint<32> to_uint32(const fix_t &val);
-extern fix_t to_fixed32(const ap_uint<32> &bits);
+// Union-based helper to read/write float bits.
+static inline float bits_to_float(ap_uint<32> bits) {
+    union {
+        unsigned int u;
+        float f;
+    } converter;
+    converter.u = (unsigned int)(bits);
+    return converter.f;
+}
+
+static inline ap_uint<32> float_to_bits(float val) {
+    union {
+        float f;
+        unsigned int u;
+    } converter;
+    converter.f = val;
+    return converter.u;
+}
 
 extern "C" void qr_decomp_lin_solv_axis(
     hls::stream<axis_word_t> &in_stream,
@@ -22,52 +36,46 @@ int main() {
     hls::stream<axis_word_t> in_stream("in_stream");
     hls::stream<axis_word_t> out_stream("out_stream");
 
-    // Define the 4x4 covariance matrix in Q16.16 hex format.
-    // Matrix (row-major order):
-    unsigned int testK_hex[4][4] = {
-		{0xfffffee7, 0x00000241, 0x0000011c, 0xfffffe48},
-		{0x000001af, 0xfffffc85, 0xfffffe48, 0x000002a2},
-		{0x00000113, 0xfffffdc5, 0xfffffee7, 0x000001af},
-		{0xfffffdc5, 0x00000495, 0x00000241, 0xfffffc85}
+    // Example 4x4 matrix in float.
+    float testK[4][4] = {
+        { -0.00428772f,  0.00657654f,  0.00419617f, -0.00871277f },
+        {  0.00880432f, -0.01359558f, -0.00871277f,  0.01789856f },
+        {  0.00433350f, -0.00671387f, -0.00428772f,  0.00880432f },
+        { -0.00671387f,  0.01028442f,  0.00657654f, -0.01359558f }
     };
 
-    // Print the input matrix (hex values)
-    std::cout << "Input Covariance Matrix (Q16.16 hex):\n";
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            std::cout << "0x" << std::hex << testK_hex[i][j] << " ";
-        }
-        std::cout << std::dec << "\n";
-    }
-
-    // Push the 16 matrix elements into the input stream.
+    // Push the 16 matrix elements into the input stream as float bits
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
             axis_word_t val;
-            val.data = testK_hex[i][j];
+            val.data = float_to_bits(testK[i][j]);
             val.last = (i == 3 && j == 3) ? 1 : 0;
             in_stream.write(val);
         }
     }
 
-    // Call the QR decomposition and linear solver IP.
+    // Call the IP
     qr_decomp_lin_solv_axis(in_stream, out_stream);
 
     // Read the output: normalized weights (4 words)
-    fix_t results[4];
+    float results[4];
     for (int i = 0; i < 4; i++) {
         axis_word_t out_val = out_stream.read();
-        results[i] = to_fixed32(out_val.data);
+        results[i] = bits_to_float(out_val.data);
     }
 
-    // Print computed weights as floating point and as hex.
-    std::cout << "Computed Minimum Variance Weights:\n";
+    // Print computed weights
+    std::cout << std::fixed << std::setprecision(6);
+    std::cout << "Computed Weights (clamped & re-normalized):\n";
     for (int i = 0; i < 4; i++) {
-        float weight_f = results[i].to_float();
-        ap_uint<32> weight_hex = to_uint32(results[i]);
-        std::cout << "w[" << i << "] = " << weight_f
-                  << " (hex: " << std::hex << weight_hex << std::dec << ")\n";
+        std::cout << "w[" << i << "] = " << results[i] << "\n";
     }
+
+    float sum_of_w = 0.0f;
+    for (int i = 0; i < 4; i++) {
+        sum_of_w += results[i];
+    }
+    std::cout << "Sum of w = " << sum_of_w << "\n";
 
     return 0;
 }
