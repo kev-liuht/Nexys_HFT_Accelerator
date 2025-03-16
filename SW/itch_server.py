@@ -6,6 +6,10 @@ import socket
 import logging
 import sys
 import time
+import threading
+import select
+
+from ouch_parser import OUCHParser
 
 # Set up logging
 LOGGING_LEVEL = logging.DEBUG
@@ -30,6 +34,8 @@ if not FILE_NAME.exists():
 # TCP SERVER CONFIG
 HOST = '192.168.1.11'
 PORT = 22
+# HOST = 'localhost'
+# PORT = 22
 
 def read_messages(file_path):
     """
@@ -66,10 +72,58 @@ def read_messages(file_path):
 
     return messages
 
+def handle_incoming_message(message):
+    """
+    Handles an incoming message from the client.
+    Decodes the message using the OUCHParser and logs the decoded message.
+    """
+    parser = OUCHParser()
+    message_type_code = message[:1]
+    message_data = message[1:]
+    decoded_message = parser.decode_message(message_type_code, message_data)
+    if decoded_message is not None:
+        parser.print_human_readable_message(decoded_message)
+    else:
+        logging.warning(f"Unknown message type: {message_type_code}")
+    pass
+
+def receive_nonblocking(conn):
+    """
+    Receives incoming messages from the client in a non-blocking manner.
+    Uses select to check for available data and passes any received data
+    to the message handler.
+    """
+    # Set socket to non-blocking mode
+    conn.setblocking(False)
+    while True:
+        # Use select with a short timeout for non-blocking behavior
+        ready_to_read, _, _ = select.select([conn], [], [], 0.1)
+        if ready_to_read:
+            try:
+                data = conn.recv(4096)
+                if data:
+                    logging.debug(f"Received data: {data!r}")
+                    handle_incoming_message(data)
+                else:
+                    # No data indicates the client closed the connection.
+                    logging.debug("No data received. Client may have disconnected.")
+                    break
+            except BlockingIOError:
+                # No data available right now
+                continue
+            except Exception as e:
+                logging.error(f"Error while receiving data: {e}")
+                break
+        else:
+            # No ready sockets; sleep briefly to avoid a tight loop.
+            time.sleep(0.1)
+    logging.debug("Exiting receive thread.")
+
 def main():
     """
     Main function to send ITCH file data to a TCP client.
     - Sends first N-1 messages automatically with a 0.5 second delay between each.
+    - Starts a thread to non-blockingly receive incoming messages from the client.
     - Pauses and waits for user [ENTER] before sending the final message.
     """
     # Prepare TCP server
@@ -83,6 +137,10 @@ def main():
         while True:
             conn, addr = sock.accept()
             print(f"Connected to {addr}")
+
+            # Start a thread to receive incoming messages non-blockingly
+            recv_thread = threading.Thread(target=receive_nonblocking, args=(conn,), daemon=True)
+            recv_thread.start()
 
             # Read all messages from the file (so each new client starts from the beginning)
             messages = read_messages(FILE_NAME)
@@ -102,7 +160,7 @@ def main():
                     break
 
                 message_index += 1
-                # Wait 0.5 seconds before sending the next
+                # Wait 0.5 seconds before sending the next message
                 time.sleep(0.5)
 
             # Now send the LAST message, waiting for user input first
