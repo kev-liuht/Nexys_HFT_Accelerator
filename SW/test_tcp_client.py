@@ -7,8 +7,8 @@ LOGGING_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
 logging.basicConfig(format=LOGGING_FORMAT, level=LOGGING_LEVEL)
 
 # TCP SERVER CONFIG
-SERVER_IP = 'localhost'
-SERVER_PORT = 12345
+SERVER_IP = '192.168.1.11'
+SERVER_PORT = 22
 
 def main():
     server_ip = SERVER_IP

@@ -9,8 +9,8 @@ LOGGING_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
 logging.basicConfig(format=LOGGING_FORMAT, level=LOGGING_LEVEL)
 
 # TCP SERVER CONFIG
-SERVER_IP = 'localhost'
-SERVER_PORT = 12345
+SERVER_IP = '192.168.1.11'
+SERVER_PORT = 22
 
 OUTPUT_FILE_DEFAULT = 'data/01302019.NASDAQ_ITCH50_AFECXDU.bin'
 
