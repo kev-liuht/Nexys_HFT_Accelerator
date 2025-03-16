@@ -199,7 +199,8 @@ static void init_all_books() {
 
 void Orderbook_wrapper(
 		hls::stream<ap_uint<136> >& inStream_pars,
-		hls::stream<axis_word_t >& inStream_algo,
+//		hls::stream<axis_1_bit >& inStream_algo,
+		ap_uint<1> publish_order,
 		hls::stream<axis_word_t >& outStream_algo
 ) {
 //#pragma HLS interface ap_ctrl_hs port=return
@@ -211,6 +212,7 @@ void Orderbook_wrapper(
 #pragma HLS array_partition variable=g_orderbook.ask_books complete dim=1
 
     static bool initialized = false;
+    static bool sent = false;
     if (!initialized) {
         init_all_books();
         initialized = true;
@@ -292,10 +294,9 @@ void Orderbook_wrapper(
 
 
     }
-    else if (!inStream_algo.empty()){
-    	axis_word_t data_req = inStream_algo.read();
+    else if (publish_order == 1 && sent == false){
+    	sent = true;
 
-    if (data_req.last == 0x00000001){
 		for(int s=0; s< NUM_STOCKS ; s++){
 		        							// ask side top-5
 		        							ap_uint<32> ask_prices[5], ask_qty[5];
@@ -330,8 +331,11 @@ void Orderbook_wrapper(
 //			        							}
 		        						}
 
-	}
 
+
+    }
+    else if (publish_order == 0) {
+    	sent = false;
     }
 
 
