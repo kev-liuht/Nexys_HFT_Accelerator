@@ -99,16 +99,15 @@ void pack_order(
    generates OUCH orders and updates internal state. */
 extern "C" {
 void order_gen_axis(
-    hls::stream<axis_word_t>& in_stream_weights,      // 4 words; float weights (0-1)
-    hls::stream<axis_word_t>& in_stream_stock_prices, // 4 words; float prices
-    hls::stream<axis_word_t>& out_stream_portfolio,   // 1 word; fixed-point portfolio value (price*10000)
-    hls::stream<axis_word_t>& out_stream_ouch         // 12 words per order message
+    hls::stream<axis_word_t>& in_stream_weights,            // 4 words; float weights (0-1)
+    hls::stream<axis_word_t>& in_stream_stock_prices,       // 4 words; float prices
+    hls::stream<axis_word_t>& out_stream_portfolio_ouch     // 1 word; fixed-point portfolio value (price*10000)
+															// 12 words; ouch order message
 )
 {
 #pragma HLS INTERFACE axis port=in_stream_weights
 #pragma HLS INTERFACE axis port=in_stream_stock_prices
-#pragma HLS INTERFACE axis port=out_stream_portfolio
-#pragma HLS INTERFACE axis port=out_stream_ouch
+#pragma HLS INTERFACE axis port=out_stream_portfolio_ouch
 #pragma HLS INTERFACE ap_ctrl_none port=return
 
     // Internal state: holdings (shares) and cash (dollars)
@@ -145,8 +144,7 @@ void order_gen_axis(
     axis_word_t port_word;
     // Convert portfolio value to fixed-point (multiply by 10000) and send
     port_word.data = float_to_fixedpt(portfolio_value);
-    port_word.last = 1;
-    out_stream_portfolio.write(port_word);
+    out_stream_portfolio_ouch.write(port_word);
 
     // Generate orders using the new weight vector.
     float new_holdings[NUM_STOCKS];
@@ -181,7 +179,7 @@ void order_gen_axis(
             axis_word_t order_word;
             order_word.data = order_msg[j];
             order_word.last = (i == (NUM_STOCKS - 1) && j == (ORDER_MSG_WORDS - 1)) ? 1 : 0;
-            out_stream_ouch.write(order_word);
+            out_stream_portfolio_ouch.write(order_word);
         }
     }
     // Update internal state

@@ -30,8 +30,7 @@ extern "C" {
     void order_gen_axis(
         hls::stream<axis_word_t>& in_stream_weights,
         hls::stream<axis_word_t>& in_stream_stock_prices,
-        hls::stream<axis_word_t>& out_stream_portfolio,
-        hls::stream<axis_word_t>& out_stream_ouch
+        hls::stream<axis_word_t>& out_stream_portfolio_ouch
     );
 }
 
@@ -39,8 +38,7 @@ int main(){
     srand(static_cast<unsigned int>(time(0)));
     hls::stream<axis_word_t> in_stream_weights;
     hls::stream<axis_word_t> in_stream_stock_prices;
-    hls::stream<axis_word_t> out_stream_portfolio;
-    hls::stream<axis_word_t> out_stream_ouch;
+    hls::stream<axis_word_t> out_stream_portfolio_ouch;
     const int num_cycles = 20;
     for (int cycle = 0; cycle < num_cycles; cycle++){
         // Send new stock prices
@@ -78,22 +76,20 @@ int main(){
         }
         cout << dec << endl;
 
-        order_gen_axis(in_stream_weights, in_stream_stock_prices, out_stream_portfolio, out_stream_ouch);
+        order_gen_axis(in_stream_weights, in_stream_stock_prices, out_stream_portfolio_ouch);
 
-        if(!out_stream_portfolio.empty()){
-            axis_word_t port_word = out_stream_portfolio.read();
-            cout << "Cycle " << cycle << " Portfolio Value: "
-                 << setprecision(6) << fixed << fixedpt_to_float(port_word.data) << endl;
-        } else {
-            cout << "Cycle " << cycle << " No portfolio update." << endl;
-        }
-        if(!out_stream_ouch.empty()){
+        if(!out_stream_portfolio_ouch.empty()){
             const int words_per_order = 12;
-            for (int order = 0; order < 4; order++){
-                cout << "Cycle " << cycle << " Order " << order << ":" << endl;
+            for (int data = 0; data < 5; data++){
+            	if (data == 0){
+            		axis_word_t port_word = out_stream_portfolio_ouch.read();
+					cout << "Cycle " << cycle << " Portfolio Value: "
+						 << setprecision(6) << fixed << fixedpt_to_float(port_word.data) << endl;
+            	}
+                cout << "Cycle " << cycle << " Order " << data << ":" << endl;
                 for (int j = 0; j < words_per_order; j++){
-                    if(!out_stream_ouch.empty()){
-                        axis_word_t order_word = out_stream_ouch.read();
+                    if(!out_stream_portfolio_ouch.empty()){
+                        axis_word_t order_word = out_stream_portfolio_ouch.read();
                         cout << setw(8) << setfill('0') << hex << order_word.data.to_uint();
                         if(order_word.last == 1)
                             cout << " (last)";
