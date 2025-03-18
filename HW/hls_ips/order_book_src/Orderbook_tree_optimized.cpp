@@ -246,7 +246,7 @@ static void publish(ap_uint<1> publish_order,
 					temp.data = bid_prices[i];
 					temp.last = 0;
 					outStream_algo.write(temp);
-					temp.data = ask_qty[i];
+					temp.data = bid_qty[i];
 					temp.last = (i == NUM_STOCKS - 1) ? 1 : 0;
 					outStream_algo.write(temp);
 				}
@@ -264,14 +264,13 @@ void Orderbook_wrapper(
 //#pragma HLS interface ap_ctrl_hs port=return
 #pragma HLS interface ap_ctrl_none port=return
 #pragma HLS interface axis port=inStream_pars
-#pragma HLS interface axis port=inStream_algo
 #pragma HLS interface axis port=outStream_algo
 #pragma HLS array_partition variable=g_orderbook.bid_books complete dim=1
 #pragma HLS array_partition variable=g_orderbook.ask_books complete dim=1
 
     static bool initialized = false;
     static bool pub_deb = false;
-    ap_uint<3> send_counter = 0;
+    static ap_uint<3> send_counter = 0;
     
     // Initialization Block (do this once)
     if (!initialized) {
