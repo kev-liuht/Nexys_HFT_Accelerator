@@ -270,28 +270,36 @@ void Orderbook_wrapper(
 #pragma HLS array_partition variable=g_orderbook.ask_books complete dim=1
 
     static bool initialized = false;
-    static bool sent = false;
-
-    ap_uint<2> firstSentNum = 0;
-    int MaxfirstSentNum = 2;
+    static bool pub_deb = false;
+    ap_uint<3> send_counter = 0;
+    
+    // Initialization Block (do this once)
     if (!initialized) {
         init_all_books();
+        send_counter = 2;
         initialized = true;
     }
 
-    if (publish_order == 0) {
-        sent = false;
-     }
-    else if (publish_order == 1 && firstSentNum < 2 && sent == false){
-    	sent = true;
+    // Order Gen Publish Signal Block
+    if (publish_order == 1 && pub_deb == false)
+    {
+        pub_deb = true;
+        send_counter++;
+    }
+    else if (publish_order == 0 && pub_deb == true)
+    {
+        pub_deb = false;
+    }
+
+    // Publish Order block
+    if (send_counter > 0)
+    {
     	publish(publish_order,outStream_algo);
-    	firstSentNum ++;
-	}
+        send_counter--;
+    }
 
-
-	else if (!inStream_pars.empty()) {
-
-
+    // Parser Data Block
+	if (!inStream_pars.empty()) {
 
         ap_uint<136> in_data = inStream_pars.read();
         ap_uint<32> stock_id = in_data.range(31, 0);
@@ -365,22 +373,7 @@ void Orderbook_wrapper(
             default:
                 break;
         }
-
-
     }
-    else if (publish_order == 1 && sent == false){
-    	sent = true;
-
-    	publish(publish_order,outStream_algo);
-
-
-
-
-
-    }
-
-
-
 }
 
 
