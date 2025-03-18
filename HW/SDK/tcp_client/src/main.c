@@ -237,21 +237,17 @@ int main()
 		// Note - should be non-blocking
 		// Note - can check is_connected global var to see if connection open
 		u32_t send_buf[TCP_SEND_BUFSIZE];
+		send_buf[0] = 0xdeadbeef;
 		u8_t apiflags = TCP_WRITE_FLAG_COPY;
 		err_t err;
-		int status;
 
 		// check if there is data to send
-		tgetfslx(send_buf[0], 0, status);
-		if(status == 1){
+		tgetfslx(send_buf[0], 0, FSL_NONBLOCKING);
+		if(send_buf[0] != 0xdeadbeef){ // if there is data to send
 			for(int i = 1; i < TCP_SEND_BUFSIZE; i++){
-				getfslx(send_buf[i], 0, status);
-				if (status == 0){
-					xil_printf("Error reading data from FSL, i = %d\n", i);
-					break;
-				}
+				getfslx(send_buf[i], 0, FSL_DEFAULT);
 			}
-			while (tcp_sndbuf(c_pcb) < TCP_SEND_BUFSIZE); // wait until there is enough space in the buffer
+			while (tcp_sndbuf(c_pcb) < TCP_SEND_BUFSIZE); // wait until there is enough space in the buffer. This should be right away
 			err = tcp_write(c_pcb, send_buf, TCP_SEND_BUFSIZE, apiflags);
 			if (err != ERR_OK) {
 				xil_printf("TCP client: Error on tcp_write: %d after FSL\n", err);
