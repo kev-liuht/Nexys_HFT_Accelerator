@@ -258,7 +258,8 @@ static void publish(ap_uint<1> publish_order,
 
 void Orderbook_wrapper(
 		hls::stream<ap_uint<136> >& inStream_pars,
-		ap_uint<1> publish_order,
+		ap_uint<1> auto_publish_order,
+        ap_uint<1> manual_publish_order,
 		hls::stream<axis_word_t >& outStream_algo
 ) {
 //#pragma HLS interface ap_ctrl_hs port=return
@@ -269,32 +270,34 @@ void Orderbook_wrapper(
 #pragma HLS array_partition variable=g_orderbook.ask_books complete dim=1
 
     static bool initialized = false;
-    static bool pub_deb = false;
-    static ap_uint<3> send_counter = 0;
+    static bool auto_pub_deb = false;
+    static bool manual_pub_deb = false;
     
     // Initialization Block (do this once)
     if (!initialized) {
         init_all_books();
-        send_counter = 2;
         initialized = true;
     }
 
-    // Order Gen Publish Signal Block
-    if (publish_order == 1 && pub_deb == false)
+    // Publish Order
+    if (manual_publish_order == 1 && manual_pub_deb == false)
     {
-        pub_deb = true;
-        send_counter++;
+        publish(publish_order,outStream_algo);
+        manual_pub_deb = true;
     }
-    else if (publish_order == 0 && pub_deb == true)
+    else if (auto_publish_order == 1 && auto_pub_deb = false)
     {
-        pub_deb = false;
+        publish(publish_order,outStream_algo);
+        auto_pub_deb = true;
     }
-
-    // Publish Order block
-    if (send_counter > 0)
+    // Debounce
+    else if (manual_publish_order == 0)
     {
-    	publish(publish_order,outStream_algo);
-        send_counter--;
+        manual_pub_deb = false;
+    }
+    else if (auto_publish_order == 0)
+    {
+        auto_pub_deb = false;
     }
 
     // Parser Data Block
