@@ -32,7 +32,8 @@ struct axis_word_t {
 // Declare your top-level function
 void Orderbook_wrapper(
 		hls::stream<ap_uint<136> >& inStream_pars,
-		ap_uint<1> publish_order,
+		ap_uint<1> auto_publish_order,
+		ap_uint<1> manual_publish_order,
 		hls::stream<axis_word_t >& outStream_algo
 );
 
