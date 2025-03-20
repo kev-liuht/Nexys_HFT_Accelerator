@@ -73,12 +73,12 @@ static void init_tree_order_book(TreeOrderBook &ob, ap_uint<32> min_price, ap_ui
     ob.num_levels = MAX_LEVELS;
 
     for (int i = 0; i < 2 * MAX_LEVELS; i++) {
-	#pragma HLS unroll
+	#pragma HLS pipeline II=1
 
         ob.segment_tree[i] = 0xFFFFFFFF;
     }
     for (int i = 0; i < MAX_LEVELS; i++) {
-	#pragma HLS unroll
+	#pragma HLS pipeline II=1
         ob.price_quantity[i] = 0;
     }
 
@@ -101,7 +101,7 @@ static void bubble_up(TreeOrderBook &ob, ap_uint<32> leaf_idx) {
 
     node >>= 1;
     while (node > 0) {
-		#pragma HLS unroll
+		#pragma HLS pipeline II=1
         ap_uint<32> left = ob.segment_tree[node << 1];
         ap_uint<32> right = ob.segment_tree[(node << 1) + 1];
         ob.segment_tree[node] = choose_preferred(left, right, ob.side);
@@ -123,7 +123,7 @@ static void add_order(OrderList &ol, TreeOrderBook &ob, ap_uint<32> order_id, ap
 
 static void init_order_list(OrderList &ol) {
     for (int i = 0; i < OrderList::MAX_ORDERS; i++) {
-	#pragma HLS unroll
+	#pragma HLS pipeline II=1
         ol.order_valid[i] = false;
         ol.order_price_index[i] = 0;
         ol.order_quantity[i] = 0;
@@ -131,7 +131,7 @@ static void init_order_list(OrderList &ol) {
     }
 
 //    for (int s = 0; s < NUM_STOCKS; s++) {
-//	#pragma HLS unroll
+//	#pragma HLS pipeline II=1
 //			// Worst bid: use index 0 in the bid tree.
 //			ap_uint<32> bid_price = index_to_price(g_orderbook.bid_books[s], 0);
 //			// Use order ID s*2 for the bid side.
@@ -184,7 +184,7 @@ static void get_top_5(TreeOrderBook &ob, ap_uint<32> out_prices[5], ap_uint<32> 
     ap_uint<32> count = 0;
 #pragma HLS inline off
     for (int i = 0; i < 5; i++) {
-#pragma HLS unroll
+#pragma HLS pipeline II=1
         ap_uint<32> best_idx = ob.segment_tree[1];
         if (best_idx == 0xFFFFFFFF) break;
         saved_indices[count] = best_idx;
@@ -195,13 +195,13 @@ static void get_top_5(TreeOrderBook &ob, ap_uint<32> out_prices[5], ap_uint<32> 
     }
 
     for (int i = 0; i < count; i++) {
-#pragma HLS unroll
+#pragma HLS pipeline II=1
         ob.price_quantity[saved_indices[i]] = saved_qty[i];
         bubble_up(ob, saved_indices[i]);
     }
 
     for (int i = 0; i < 5; i++) {
-#pragma HLS unroll
+#pragma HLS pipeline II=1
 
 
     	ap_uint<32> worst_price;
@@ -225,7 +225,7 @@ static void init_all_books() {
     ap_uint<32> min_p[NUM_STOCKS] = MIN_PRICE_INIT;
     ap_uint<32> tick[NUM_STOCKS]  = TICK_INIT;
     for (int i = 0; i < NUM_STOCKS; i++) {
-#pragma HLS unroll
+#pragma HLS pipeline II=1
         init_tree_order_book(g_orderbook.bid_books[i], min_p[i], tick[i], SIDE_BID);
         init_tree_order_book(g_orderbook.ask_books[i], min_p[i], tick[i], SIDE_ASK);
     }
@@ -236,13 +236,13 @@ static void init_all_books() {
 static void publish(
 		hls::stream<axis_word_t >& outStream_algo){
 	for(int s=0; s< NUM_STOCKS ; s++){
-#pragma HLS unroll
+#pragma HLS pipeline II=1
 				// ask side top-5
 				ap_uint<32> ask_prices[5], ask_qty[5];
 				get_top_5(g_orderbook.ask_books[s], ask_prices, ask_qty);
 				axis_word_t temp;
 				for(int i=0; i<5; i++){
-				#pragma HLS unroll
+				#pragma HLS pipeline II=1
 	//			    outStream_algo.write(ask_prices[i]);
 					temp.data = ask_prices[i];
 					temp.last = 0;
@@ -258,7 +258,7 @@ static void publish(
 				ap_uint<32> bid_prices[5], bid_qty[5];
 				get_top_5(g_orderbook.bid_books[s], bid_prices, bid_qty);
 				for(int i=0; i<5; i++){
-					#pragma HLS unroll
+					#pragma HLS pipeline II=1
 	//			    outStream_algo.write(bid_prices[i]);
 					temp.data = bid_prices[i];
 					temp.last = 0;
