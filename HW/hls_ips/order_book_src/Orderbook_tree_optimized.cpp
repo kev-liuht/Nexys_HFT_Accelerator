@@ -130,18 +130,18 @@ static void init_order_list(OrderList &ol) {
         ol.order_ask_bid[i] = 2;
     }
 
-    for (int s = 0; s < NUM_STOCKS; s++) {
-	#pragma HLS unroll
-			// Worst bid: use index 0 in the bid tree.
-			ap_uint<32> bid_price = index_to_price(g_orderbook.bid_books[s], 0);
-			// Use order ID s*2 for the bid side.
-			add_order(ol, g_orderbook.bid_books[s], s * 2, bid_price, 1, SIDE_BID);
-
-			// Worst ask: use index MAX_LEVELS - 1 in the ask tree.
-			ap_uint<32> ask_price = index_to_price(g_orderbook.ask_books[s], MAX_LEVELS - 1);
-			// Use order ID s*2 + 1 for the ask side.
-			add_order(ol, g_orderbook.ask_books[s], s * 2 + 1, ask_price, 1, SIDE_ASK);
-		}
+//    for (int s = 0; s < NUM_STOCKS; s++) {
+//	#pragma HLS unroll
+//			// Worst bid: use index 0 in the bid tree.
+//			ap_uint<32> bid_price = index_to_price(g_orderbook.bid_books[s], 0);
+//			// Use order ID s*2 for the bid side.
+//			add_order(ol, g_orderbook.bid_books[s], s * 2, bid_price, 1, SIDE_BID);
+//
+//			// Worst ask: use index MAX_LEVELS - 1 in the ask tree.
+//			ap_uint<32> ask_price = index_to_price(g_orderbook.ask_books[s], MAX_LEVELS - 1);
+//			// Use order ID s*2 + 1 for the ask side.
+//			add_order(ol, g_orderbook.ask_books[s], s * 2 + 1, ask_price, 1, SIDE_ASK);
+//		}
 }
 
 
@@ -202,8 +202,19 @@ static void get_top_5(TreeOrderBook &ob, ap_uint<32> out_prices[5], ap_uint<32> 
 
     for (int i = 0; i < 5; i++) {
 #pragma HLS unroll
-        out_prices[i] = (i < count) ? index_to_price(ob, saved_indices[i]) :ap_uint<32> (0xFFFFFFFF);
-        out_qty[i] = (i < count) ? saved_qty[i] : ap_uint<32> (0);
+
+
+    	ap_uint<32> worst_price;
+    	if(ob.side == SIDE_BID)
+    	// Worst bid: use index 0 in the bid tree.
+    		worst_price = index_to_price(ob, 0);
+    	else
+		// Worst ask: use index MAX_LEVELS - 1 in the ask tree.
+    		worst_price = index_to_price(ob, MAX_LEVELS - 1);
+
+
+        out_prices[i] = (i < count) ? index_to_price(ob, saved_indices[i]) : worst_price;
+        out_qty[i] = (i < count) ? saved_qty[i] : ap_uint<32> (1);
     }
 }
 
@@ -264,8 +275,8 @@ static void publish(
 
 void Orderbook_wrapper(
 		hls::stream<ap_uint<136> >& inStream_pars,
-		ap_uint<1> auto_publish_order,
-        ap_uint<1> manual_publish_order,
+//		ap_uint<1> auto_publish_order,
+//        ap_uint<1> manual_publish_order,
 		hls::stream<axis_word_t >& outStream_algo
 ) {
 //#pragma HLS interface ap_ctrl_hs port=return
@@ -279,6 +290,8 @@ void Orderbook_wrapper(
     static bool auto_pub_deb = false;
     static bool manual_pub_deb = false;
     
+    static ap_uint<32> num_publish = 0;
+
     // Initialization Block (do this once)
     if (!initialized) {
         init_all_books();
@@ -286,25 +299,30 @@ void Orderbook_wrapper(
     }
 
     // Publish Order
-    if (manual_publish_order == 1 && manual_pub_deb == false)
-    {
-    	manual_pub_deb = true;
-    	publish(outStream_algo);
+//    if (manual_publish_order == 1 && manual_pub_deb == false)
+//    {
+//    	manual_pub_deb = true;
+//    	publish(outStream_algo);
+//
+//    }
+//    else if (auto_publish_order == 1 && auto_pub_deb == false)
+//    {
+//    	auto_pub_deb = true;
+//    	publish(outStream_algo);
+//    }
+//    // Debounce
+//    else if (manual_publish_order == 0 && manual_pub_deb == true)
+//    {
+//        manual_pub_deb = false;
+//    }
+//    else if (auto_publish_order == 0 && auto_pub_deb == true)
+//    {
+//        auto_pub_deb = false;
+//    }
 
-    }
-    else if (auto_publish_order == 1 && auto_pub_deb == false)
-    {
-    	auto_pub_deb = true;
+    if(num_publish>20){
+    	num_publish = 0;
     	publish(outStream_algo);
-    }
-    // Debounce
-    else if (manual_publish_order == 0 && manual_pub_deb == true)
-    {
-        manual_pub_deb = false;
-    }
-    else if (auto_publish_order == 0 && auto_pub_deb == true)
-    {
-        auto_pub_deb = false;
     }
 
     // Parser Data Block
@@ -382,6 +400,8 @@ void Orderbook_wrapper(
             default:
                 break;
         }
+
+        num_publish++;
     }
 }
 

@@ -39,8 +39,8 @@ static ap_uint<136> make_input_word(
 int main()
 {
     hls::stream<ap_uint<136> > inStream_pars("inPars");
-    ap_uint<1> auto_publish_order;
-    ap_uint<1> manual_publish_order;
+//    ap_uint<1> auto_publish_order;
+//    ap_uint<1> manual_publish_order;
     hls::stream<axis_word_t >  outStream_algo("outAlgo");
 
     // We rely on #defines in "orderbook_tree_optimized.h" for:
@@ -90,8 +90,8 @@ int main()
 
                     // Write add command into inStream_pars and call the wrapper
                     inStream_pars.write(in_data);
-                    Orderbook_wrapper(inStream_pars, auto_publish_order,manual_publish_order, outStream_algo);
-                    //Orderbook_wrapper(inStream_pars, outStream_algo);
+//                    Orderbook_wrapper(inStream_pars, auto_publish_order,manual_publish_order, outStream_algo);
+                    Orderbook_wrapper(inStream_pars, outStream_algo);
                 }
             }
         }
@@ -100,53 +100,53 @@ int main()
 //        ap_uint<1> temp_1 = 1;
 //        manual_publish_order = temp_1;
 //        Orderbook_wrapper(inStream_pars, auto_publish_order,manual_publish_order, outStream_algo);
-//
-//        // 3) For each stock, read and print top-5 Asks and top-5 Bids (before cancel)
-//        std::cout << "\n=== TOP-5 SNAPSHOT (POST ADD) ===\n";
-//
-//        for (int s = 0; s < NUM_STOCKS; s++) {
-//            std::cout << "\nStock " << s << ":\n";
-//
-//            // Ask side: read top-5 asks (each ask has a price and a quantity)
-//            std::cout << "  Top-5 Asks:\n";
-//            ap_uint<32> ask_prices[5], ask_qty[5];
-//            axis_word_t temp;
-//            for (int i = 0; i < 5; i++) {
-//                // Read ask price
-//                temp = outStream_algo.read();
-//                ask_prices[i] = temp.data;
-//                // Read ask quantity
-//                temp = outStream_algo.read();
-//                ask_qty[i] = temp.data;
-//            }
-//            for (int i = 0; i < 5; i++) {
-////                if (ask_prices[i] == 0xFFFFFFFF)
-////                    std::cout << "    Ask " << i << ": <Empty>\n";
-////                else
-//                    std::cout << "    Ask " << i << ": Price = " << ask_prices[i]
-//                              << ", Qty = " << ask_qty[i] << "\n";
-//            }
-//
-//            // Bid side: read top-5 bids (each bid has a price and a quantity)
-//            std::cout << "  Top-5 Bids:\n";
-//            ap_uint<32> bid_prices[5], bid_qty[5];
-//            for (int i = 0; i < 5; i++) {
-//                // Read bid price
-//                temp = outStream_algo.read();
-//                bid_prices[i] = temp.data;
-//                // Read bid quantity
-//                temp = outStream_algo.read();
-//                bid_qty[i] = temp.data;
-//            }
-//            for (int i = 0; i < 5; i++) {
-////                if (bid_prices[i] == 0xFFFFFFFF)
-////                    std::cout << "    Bid " << i << ": <Empty>\n";
-////                else
-//
-//                    std::cout << "    Bid " << i << ": Price = " << bid_prices[i]
-//                              << ", Qty = " << bid_qty[i] << "\n";
-//            }
-//        }
+
+        // 3) For each stock, read and print top-5 Asks and top-5 Bids (before cancel)
+        std::cout << "\n=== TOP-5 SNAPSHOT (POST ADD) ===\n";
+
+        for (int s = 0; s < NUM_STOCKS; s++) {
+            std::cout << "\nStock " << s << ":\n";
+
+            // Ask side: read top-5 asks (each ask has a price and a quantity)
+            std::cout << "  Top-5 Asks:\n";
+            ap_uint<32> ask_prices[5], ask_qty[5];
+            axis_word_t temp;
+            for (int i = 0; i < 5; i++) {
+                // Read ask price
+                temp = outStream_algo.read();
+                ask_prices[i] = temp.data;
+                // Read ask quantity
+                temp = outStream_algo.read();
+                ask_qty[i] = temp.data;
+            }
+            for (int i = 0; i < 5; i++) {
+//                if (ask_prices[i] == 0xFFFFFFFF)
+//                    std::cout << "    Ask " << i << ": <Empty>\n";
+//                else
+                    std::cout << "    Ask " << i << ": Price = " << ask_prices[i]
+                              << ", Qty = " << ask_qty[i] << "\n";
+            }
+
+            // Bid side: read top-5 bids (each bid has a price and a quantity)
+            std::cout << "  Top-5 Bids:\n";
+            ap_uint<32> bid_prices[5], bid_qty[5];
+            for (int i = 0; i < 5; i++) {
+                // Read bid price
+                temp = outStream_algo.read();
+                bid_prices[i] = temp.data;
+                // Read bid quantity
+                temp = outStream_algo.read();
+                bid_qty[i] = temp.data;
+            }
+            for (int i = 0; i < 5; i++) {
+//                if (bid_prices[i] == 0xFFFFFFFF)
+//                    std::cout << "    Bid " << i << ": <Empty>\n";
+//                else
+
+                    std::cout << "    Bid " << i << ": Price = " << bid_prices[i]
+                              << ", Qty = " << bid_qty[i] << "\n";
+            }
+        }
 
 //        // 4) Cancel some top orders.
 //        // For each stock, cancel the best (top) ask and the best bid orders.
