@@ -227,7 +227,6 @@ proc cr_bd_hft_block_design { parentCell } {
   xilinx.com:ip:axi_timer:2.0\
   xilinx.com:ip:axi_uartlite:2.0\
   xilinx.com:ip:clk_wiz:6.0\
-  xilinx.com:ip:ila:6.2\
   xilinx.com:user:itch50_parser_slow:1.8\
   xilinx.com:ip:mdm:3.2\
   xilinx.com:ip:microblaze:11.0\
@@ -494,14 +493,6 @@ proc create_hier_cell_microblaze_0_local_memory { parentCell nameHier } {
    CONFIG.USE_BOARD_FLOW {true} \
  ] $clk_wiz_1
 
-  # Create instance: ila_0, and set properties
-  set ila_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:ila:6.2 ila_0 ]
-  set_property -dict [ list \
-   CONFIG.C_NUM_OF_PROBES {9} \
-   CONFIG.C_SLOT_0_AXIS_TDATA_WIDTH {256} \
-   CONFIG.C_SLOT_0_AXI_PROTOCOL {AXI4S} \
- ] $ila_0
-
   # Create instance: itch50_parser_slow_0, and set properties
   set itch50_parser_slow_0 [ create_bd_cell -type ip -vlnv xilinx.com:user:itch50_parser_slow:1.8 itch50_parser_slow_0 ]
 
@@ -574,7 +565,6 @@ proc create_hier_cell_microblaze_0_local_memory { parentCell nameHier } {
   connect_bd_intf_net -intf_net axi_ethernet_0_rgmii [get_bd_intf_ports eth_rgmii] [get_bd_intf_pins axi_ethernet_0/rgmii]
   connect_bd_intf_net -intf_net axi_smc_M00_AXI [get_bd_intf_pins axi_smc/M00_AXI] [get_bd_intf_pins mig_7series_0/S_AXI]
   connect_bd_intf_net -intf_net axi_uartlite_0_UART [get_bd_intf_ports usb_uart] [get_bd_intf_pins axi_uartlite_0/UART]
-connect_bd_intf_net -intf_net itch50_parser_slow_0_M00_AXIS [get_bd_intf_pins ila_0/SLOT_0_AXIS] [get_bd_intf_pins itch50_parser_slow_0/M00_AXIS]
   connect_bd_intf_net -intf_net microblaze_0_M0_AXIS [get_bd_intf_pins itch50_parser_slow_0/S00_AXIS] [get_bd_intf_pins microblaze_0/M0_AXIS]
   connect_bd_intf_net -intf_net microblaze_0_M_AXI_DC [get_bd_intf_pins axi_smc/S00_AXI] [get_bd_intf_pins microblaze_0/M_AXI_DC]
   connect_bd_intf_net -intf_net microblaze_0_M_AXI_IC [get_bd_intf_pins axi_smc/S01_AXI] [get_bd_intf_pins microblaze_0/M_AXI_IC]
@@ -606,7 +596,7 @@ connect_bd_intf_net -intf_net itch50_parser_slow_0_M00_AXIS [get_bd_intf_pins il
   connect_bd_net -net clk_wiz_1_clk_out3 [get_bd_pins axi_ethernet_0/gtx_clk] [get_bd_pins clk_wiz_1/clk_out3]
   connect_bd_net -net clk_wiz_1_locked [get_bd_pins clk_wiz_1/locked] [get_bd_pins rst_clk_wiz_1_100M/dcm_locked]
   connect_bd_net -net mdm_1_debug_sys_rst [get_bd_pins mdm_1/Debug_SYS_Rst] [get_bd_pins rst_clk_wiz_1_100M/mb_debug_sys_rst]
-  connect_bd_net -net microblaze_0_Clk [get_bd_pins axi_ethernet_0/axis_clk] [get_bd_pins axi_ethernet_0/s_axi_lite_clk] [get_bd_pins axi_ethernet_0_dma/m_axi_mm2s_aclk] [get_bd_pins axi_ethernet_0_dma/m_axi_s2mm_aclk] [get_bd_pins axi_ethernet_0_dma/m_axi_sg_aclk] [get_bd_pins axi_ethernet_0_dma/s_axi_lite_aclk] [get_bd_pins axi_smc/aclk] [get_bd_pins axi_timer_0/s_axi_aclk] [get_bd_pins axi_uartlite_0/s_axi_aclk] [get_bd_pins clk_wiz_1/clk_out1] [get_bd_pins ila_0/clk] [get_bd_pins itch50_parser_slow_0/m00_axis_aclk] [get_bd_pins itch50_parser_slow_0/s00_axis_aclk] [get_bd_pins microblaze_0/Clk] [get_bd_pins microblaze_0_axi_intc/processor_clk] [get_bd_pins microblaze_0_axi_intc/s_axi_aclk] [get_bd_pins microblaze_0_axi_periph/ACLK] [get_bd_pins microblaze_0_axi_periph/M00_ACLK] [get_bd_pins microblaze_0_axi_periph/M01_ACLK] [get_bd_pins microblaze_0_axi_periph/M02_ACLK] [get_bd_pins microblaze_0_axi_periph/M03_ACLK] [get_bd_pins microblaze_0_axi_periph/M04_ACLK] [get_bd_pins microblaze_0_axi_periph/S00_ACLK] [get_bd_pins microblaze_0_local_memory/LMB_Clk] [get_bd_pins rst_clk_wiz_1_100M/slowest_sync_clk]
+  connect_bd_net -net microblaze_0_Clk [get_bd_pins axi_ethernet_0/axis_clk] [get_bd_pins axi_ethernet_0/s_axi_lite_clk] [get_bd_pins axi_ethernet_0_dma/m_axi_mm2s_aclk] [get_bd_pins axi_ethernet_0_dma/m_axi_s2mm_aclk] [get_bd_pins axi_ethernet_0_dma/m_axi_sg_aclk] [get_bd_pins axi_ethernet_0_dma/s_axi_lite_aclk] [get_bd_pins axi_smc/aclk] [get_bd_pins axi_timer_0/s_axi_aclk] [get_bd_pins axi_uartlite_0/s_axi_aclk] [get_bd_pins clk_wiz_1/clk_out1] [get_bd_pins itch50_parser_slow_0/m00_axis_aclk] [get_bd_pins itch50_parser_slow_0/s00_axis_aclk] [get_bd_pins microblaze_0/Clk] [get_bd_pins microblaze_0_axi_intc/processor_clk] [get_bd_pins microblaze_0_axi_intc/s_axi_aclk] [get_bd_pins microblaze_0_axi_periph/ACLK] [get_bd_pins microblaze_0_axi_periph/M00_ACLK] [get_bd_pins microblaze_0_axi_periph/M01_ACLK] [get_bd_pins microblaze_0_axi_periph/M02_ACLK] [get_bd_pins microblaze_0_axi_periph/M03_ACLK] [get_bd_pins microblaze_0_axi_periph/M04_ACLK] [get_bd_pins microblaze_0_axi_periph/S00_ACLK] [get_bd_pins microblaze_0_local_memory/LMB_Clk] [get_bd_pins rst_clk_wiz_1_100M/slowest_sync_clk]
   connect_bd_net -net microblaze_0_intr [get_bd_pins microblaze_0_axi_intc/intr] [get_bd_pins microblaze_0_xlconcat/dout]
   connect_bd_net -net mig_7series_0_mmcm_locked [get_bd_pins mig_7series_0/mmcm_locked] [get_bd_pins rst_mig_7series_0_100M/dcm_locked]
   connect_bd_net -net mig_7series_0_ui_clk [get_bd_pins axi_smc/aclk1] [get_bd_pins mig_7series_0/ui_clk] [get_bd_pins rst_mig_7series_0_100M/slowest_sync_clk]
@@ -631,6 +621,33 @@ connect_bd_intf_net -intf_net itch50_parser_slow_0_M00_AXIS [get_bd_intf_pins il
   create_bd_addr_seg -range 0x00010000 -offset 0x41200000 [get_bd_addr_spaces microblaze_0/Data] [get_bd_addr_segs microblaze_0_axi_intc/S_AXI/Reg] SEG_microblaze_0_axi_intc_Reg
   create_bd_addr_seg -range 0x20000000 -offset 0x80000000 [get_bd_addr_spaces microblaze_0/Data] [get_bd_addr_segs mig_7series_0/memmap/memaddr] SEG_mig_7series_0_memaddr
   create_bd_addr_seg -range 0x20000000 -offset 0x80000000 [get_bd_addr_spaces microblaze_0/Instruction] [get_bd_addr_segs mig_7series_0/memmap/memaddr] SEG_mig_7series_0_memaddr
+  
+  # Create HLS custom IPs
+  create_bd_cell -type ip -vlnv xilinx.com:hls:Orderbook_wrapper:1.0 Orderbook_wrapper_0
+  create_bd_cell -type ip -vlnv xilinx.com:hls:ta_parser:1.0 ta_parser_0
+  create_bd_cell -type ip -vlnv xilinx.com:hls:cov_update:1.0 cov_update_0
+  create_bd_cell -type ip -vlnv xilinx.com:hls:qr_decomp_lin_solv_axis:1.0 qr_decomp_lin_solv_a_0
+  create_bd_cell -type ip -vlnv xilinx.com:hls:order_gen_axis:1.0 order_gen_axis_0
+
+  # Connect HLS IPs
+  connect_bd_intf_net [get_bd_intf_pins itch50_parser_slow_0/M00_AXIS] [get_bd_intf_pins Orderbook_wrapper_0/inStream_pars_V_V]
+  connect_bd_intf_net [get_bd_intf_pins Orderbook_wrapper_0/outStream_algo] [get_bd_intf_pins ta_parser_0/in_stream]
+  connect_bd_intf_net [get_bd_intf_pins ta_parser_0/out_stream_cov] [get_bd_intf_pins cov_update_0/in_stream]
+  connect_bd_intf_net [get_bd_intf_pins cov_update_0/out_stream] [get_bd_intf_pins qr_decomp_lin_solv_a_0/in_stream]
+  connect_bd_intf_net [get_bd_intf_pins qr_decomp_lin_solv_a_0/out_stream] [get_bd_intf_pins order_gen_axis_0/in_stream_weights]
+  connect_bd_intf_net [get_bd_intf_pins ta_parser_0/out_stream_og] [get_bd_intf_pins order_gen_axis_0/in_stream_stock_prices]
+  connect_bd_intf_net [get_bd_intf_pins order_gen_axis_0/out_stream_portfolio_ouch] [get_bd_intf_pins microblaze_0/S0_AXIS]
+
+  connect_bd_net [get_bd_pins Orderbook_wrapper_0/ap_clk] [get_bd_pins clk_wiz_1/clk_out1]
+  connect_bd_net [get_bd_pins ta_parser_0/ap_clk] [get_bd_pins clk_wiz_1/clk_out1]
+  connect_bd_net [get_bd_pins cov_update_0/ap_clk] [get_bd_pins clk_wiz_1/clk_out1]
+  connect_bd_net [get_bd_pins qr_decomp_lin_solv_a_0/ap_clk] [get_bd_pins clk_wiz_1/clk_out1]
+  connect_bd_net [get_bd_pins order_gen_axis_0/ap_clk] [get_bd_pins clk_wiz_1/clk_out1]
+  connect_bd_net [get_bd_pins Orderbook_wrapper_0/ap_rst_n] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
+  connect_bd_net [get_bd_pins ta_parser_0/ap_rst_n] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
+  connect_bd_net [get_bd_pins cov_update_0/ap_rst_n] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
+  connect_bd_net [get_bd_pins qr_decomp_lin_solv_a_0/ap_rst_n] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
+  connect_bd_net [get_bd_pins order_gen_axis_0/ap_rst_n] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
 
   # Perform GUI Layout
   regenerate_bd_layout -layout_string {
@@ -652,7 +669,6 @@ preplace inst axi_timer_0 -pg 1 -lvl 4 -y 1370 -defaultsOSRD
 preplace inst microblaze_0_xlconcat -pg 1 -lvl 3 -y 900 -defaultsOSRD
 preplace inst mdm_1 -pg 1 -lvl 4 -y 860 -defaultsOSRD
 preplace inst microblaze_0_axi_intc -pg 1 -lvl 4 -y 1120 -defaultsOSRD
-preplace inst ila_0 -pg 1 -lvl 7 -y 1010 -defaultsOSRD
 preplace inst itch50_parser_slow_0 -pg 1 -lvl 6 -y 1000 -defaultsOSRD
 preplace inst axi_uartlite_0 -pg 1 -lvl 7 -y 1250 -defaultsOSRD
 preplace inst microblaze_0 -pg 1 -lvl 5 -y 850 -defaultsOSRD
@@ -1038,3 +1054,5 @@ move_dashboard_gadget -name {utilization_2} -row 1 -col 1
 move_dashboard_gadget -name {methodology_1} -row 2 -col 1
 # Set current dashboard to 'default_dashboard' 
 current_dashboard default_dashboard 
+
+
