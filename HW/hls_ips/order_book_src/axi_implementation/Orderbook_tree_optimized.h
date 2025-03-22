@@ -25,15 +25,17 @@ struct axis_word_t {
     ap_uint<1> last;  // Last signal (1 if it's the last data in the stream)
 };
 
-
+struct axis_bit_t {
+    ap_uint<1> data;
+};
 
 
 
 // Declare your top-level function
 void Orderbook_wrapper(
 		hls::stream<ap_uint<136> >& inStream_pars,
-//		ap_uint<1> auto_publish_order,
-//		ap_uint<1> manual_publish_order,
+//		ap_uint<1> publish_order,
+		hls::stream<axis_bit_t >& publish_order,
 		hls::stream<axis_word_t >& outStream_algo
 );
 
