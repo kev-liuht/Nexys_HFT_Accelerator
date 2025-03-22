@@ -236,14 +236,13 @@ int main()
 		//ADD CODE HERE to be repeated constantly
 		// Note - should be non-blocking
 		// Note - can check is_connected global var to see if connection open
-		u32_t send_buf[TCP_SEND_BUFSIZE];
-		send_buf[0] = 0xdeadbeef;
+		uint32_t send_buf[TCP_SEND_BUFSIZE];
 		u8_t apiflags = TCP_WRITE_FLAG_COPY;
 		err_t err;
 
 		// check if there is data to send
 		tgetfslx(send_buf[0], 0, FSL_NONBLOCKING);
-		if(send_buf[0] != 0xdeadbeef){ // if there is data to send
+		if(send_buf[0] != 0){ // if there is data to send
 			for(int i = 1; i < TCP_SEND_BUFSIZE; i++){
 				getfslx(send_buf[i], 0, FSL_DEFAULT);
 			}
@@ -406,7 +405,7 @@ static err_t tcp_client_connected(void *arg, struct tcp_pcb *tpcb, err_t err)
 	while (tcp_sndbuf(c_pcb) < TCP_SEND_BUFSIZE);
 
 	//Enqueue some data to send
-	err = tcp_write(c_pcb, send_buf, TCP_SEND_BUFSIZE, apiflags);
+//	err = tcp_write(c_pcb, send_buf, TCP_SEND_BUFSIZE, apiflags);
 	if (err != ERR_OK) {
 		xil_printf("TCP client: Error on tcp_write: %d\n", err);
 		return err;
