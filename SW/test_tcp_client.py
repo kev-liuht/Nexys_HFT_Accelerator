@@ -1,34 +1,40 @@
 import socket
 from itch_parser import ITCHParser
+from Orderbook import OrderBookManager
 import logging
 
-LOGGING_LEVEL = logging.INFO # Change to logging.INFO for less verbose logging
+LOGGING_LEVEL = logging.DEBUG  # Change to logging.INFO for less verbose logging
 LOGGING_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
 logging.basicConfig(format=LOGGING_FORMAT, level=LOGGING_LEVEL)
 
 # TCP SERVER CONFIG
 SERVER_IP = '192.168.1.11'
 SERVER_PORT = 22
+SIDE_BID = 0
+SIDE_ASK = 1
 
 def main():
     server_ip = SERVER_IP
     server_port = SERVER_PORT
     parser = ITCHParser()
-    # Create a TCP/IP socket
+    orderbook = OrderBookManager()
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+    # >>> ADDED: Counter to track how many order-related messages we've processed.
+    order_count = 0
+    PUBLISH_THRESHOLD = 20
+
     try:
-        # Connect the socket to the server
         client_socket.connect((server_ip, server_port))
         print(f"Connected to {server_ip}:{server_port}")
         num_bytes_to_skip = 0
+
         while True:
-            # Receive data from the server
-            data = client_socket.recv(1024*1024)
+            data = client_socket.recv(1024 * 1024)
             if not data:
                 break
+
             while data:
-                # Skip bytes if necessary. Some messages are split across multiple data packets. Skipping incomplete messages.
                 if num_bytes_to_skip > 0:
                     if num_bytes_to_skip > len(data):
                         num_bytes_to_skip -= len(data)
@@ -36,44 +42,89 @@ def main():
                     else:
                         data = data[num_bytes_to_skip:]
                         num_bytes_to_skip = 0
-                # Parse the message length
+
+                if len(data) < 2:
+                    break  # incomplete data; wait for next recv
+
                 length = int.from_bytes(data[:2], byteorder='big')
                 if length > len(data[2:]):
                     logging.debug(f"Expected message length: {length}, actual length: {len(data[2:])}")
                     num_bytes_to_skip = length - len(data[2:])
-                message = data[2:2+length]
-                # Decode the message
+                    break
+
+                message = data[2 : 2 + length]
                 message_type_code = message[0:1]
                 message_data = message[1:]
 
-                logging.debug(f"message_type_code: {message_type_code}, message length: {length}. ")
+                logging.debug(f"message_type_code: {message_type_code}, message length: {length}")
 
                 decoded_message = parser.decode_message(message_type_code, message_data)
                 if decoded_message is not None:
                     if LOGGING_LEVEL == logging.DEBUG:
                         parser.print_human_readable_message(decoded_message)
-                
 
-                if message_type_code in [b'A', b'F', b'E', b'C', b'X', b'D', b'U']:
-                    # A = Add Order, F = Add Order MPID Attribution, E = Order Executed, C = Order Executed with Price
-                    # X = Order Cancel, D = Order Delete, U = Order Replace
-                    
-                    ### ORDER BOOK HERE ###
+                    # Handle order-related messages:
+                    if message_type_code in [b'A', b'F', b'E', b'C', b'X', b'D', b'U']:
+                        # For demonstration, we assume a single 'stock_id' of 0
+                        # If your ITCH message includes a real stock -> stock_id mapping,
+                        # extract that to pass in.
 
-                    # example for accessing decoded message attributes
-                    if message_type_code == b'A':
-                        logging.info(f"Add Order w/o MPID Attribution: ")
-                        logging.info(f"Stock: {decoded_message.Stock}, Order Reference Number: {decoded_message.OrderReferenceNumber}, Side: {decoded_message.BuySellIndicator}, Quantity: {decoded_message.Shares}, Price: {decoded_message.Price}")
-                    pass
+                        stock_id = decoded_message.StockID
+                        side = decoded_message.BuySellIndicator
+                        price = decoded_message.Price
+                        quantity = decoded_message.Shares
+                        order_id = decoded_message.OrderReferenceNumber
 
-                # Move to the next message
-                data = data[2+length:]
+                        # a) Add Order
+                        if message_type_code in [b'A']:
+                            orderbook.add_order(
+                                stock_id=stock_id,
+                                order_id=order_id,
+                                price=price,
+                                quantity=quantity,
+                                side=side
+                            )
+
+                        # b) Cancel
+                        elif message_type_code == b'X':
+                            orderbook.cancel_order(
+                                stock_id=stock_id,
+                                order_id=order_id,
+                                cancel_qty=decoded_message.CanceledShares
+                            )
+
+                        # c) Execute
+                        elif message_type_code == b'E':
+                            orderbook.execute_order(
+                                stock_id=stock_id,
+                                order_id=order_id,
+                                execute_qty=decoded_message.ExecutedShares
+                            )
+
+                        # d) Delete
+                        elif message_type_code == b'D':
+                            orderbook.delete_order(
+                                stock_id=stock_id,
+                                order_id=order_id
+                            )
+
+                        # >>> ADDED: Increase counter and check threshold
+                        order_count += 1
+                        if order_count >= PUBLISH_THRESHOLD:
+                            # Every 20 messages, do a publish
+                            # Publish the entire snapshot for all stocks
+                            snapshot = orderbook.publish_snapshot()
+                            print("Full snapshot:")
+                            for entry in snapshot:
+                                print(entry)  # or orderbook.publish_snapshot()
+                            order_count = 0
+
+                data = data[2 + length :]
 
     except Exception as e:
         print(f"An error occurred: {e}")
 
     finally:
-        # Close the socket
         client_socket.close()
         print("Connection closed")
 

@@ -402,7 +402,7 @@ static err_t tcp_client_connected(void *arg, struct tcp_pcb *tpcb, err_t err)
 	// send_buf[TCP_SEND_BUFSIZE-1] = '\n';
 
 	//Loop until enough room in buffer (should be right away)
-	while (tcp_sndbuf(c_pcb) < TCP_SEND_BUFSIZE);
+	while (tcp_sndbuf(c_pcb) < TCP_SEND_BUF_BYTE_SIZE);
 
 	//Enqueue some data to send
 //	err = tcp_write(c_pcb, send_buf, TCP_SEND_BUFSIZE, apiflags);
