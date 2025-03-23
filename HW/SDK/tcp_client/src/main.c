@@ -77,7 +77,7 @@ struct netif *echo_netif;
 #define DEST_IP6_ADDR "fe80::6600:6aff:fe71:fde6"
 #define DEST_PORT 22
 
-#define TCP_SEND_BUFSIZE 20
+#define TCP_SEND_BUFSIZE (4 + 4 * 48)/4 // 4 bytes for portfolio, 48 bytes for each stock
 
 //Function prototypes
 #if LWIP_IPV6==1
@@ -236,6 +236,22 @@ int main()
 		//ADD CODE HERE to be repeated constantly
 		// Note - should be non-blocking
 		// Note - can check is_connected global var to see if connection open
+		uint32_t send_buf[TCP_SEND_BUFSIZE];
+		u8_t apiflags = TCP_WRITE_FLAG_COPY;
+		err_t err;
+
+		// check if there is data to send
+		tgetfslx(send_buf[0], 0, FSL_NONBLOCKING);
+		if(send_buf[0] != 0){ // if there is data to send
+			for(int i = 1; i < TCP_SEND_BUFSIZE; i++){
+				getfslx(send_buf[i], 0, FSL_DEFAULT);
+			}
+			while (tcp_sndbuf(c_pcb) < TCP_SEND_BUFSIZE); // wait until there is enough space in the buffer. This should be right away
+			err = tcp_write(c_pcb, send_buf, TCP_SEND_BUFSIZE, apiflags);
+			if (err != ERR_OK) {
+				xil_printf("TCP client: Error on tcp_write: %d after FSL\n", err);
+			}
+		}
 
 
 		//END OF ADDED CODE
@@ -375,21 +391,21 @@ static err_t tcp_client_connected(void *arg, struct tcp_pcb *tpcb, err_t err)
 	//ADD CODE HERE to do when connection established
 
 	//Just send a single packet
-	u8_t apiflags = TCP_WRITE_FLAG_COPY | TCP_WRITE_FLAG_MORE;
-	char send_buf[TCP_SEND_BUFSIZE];
-	u32_t i;
+	// u8_t apiflags = TCP_WRITE_FLAG_COPY | TCP_WRITE_FLAG_MORE;
+	// char send_buf[TCP_SEND_BUFSIZE];
+	// u32_t i;
 
-	for(i = 0; i < TCP_SEND_BUFSIZE-1; i = i + 1)
-	{
-		send_buf[i] = i+'a';
-	}
-	send_buf[TCP_SEND_BUFSIZE-1] = '\n';
+	// for(i = 0; i < TCP_SEND_BUFSIZE-1; i = i + 1)
+	// {
+	// 	send_buf[i] = i+'a';
+	// }
+	// send_buf[TCP_SEND_BUFSIZE-1] = '\n';
 
 	//Loop until enough room in buffer (should be right away)
 	while (tcp_sndbuf(c_pcb) < TCP_SEND_BUFSIZE);
 
 	//Enqueue some data to send
-	err = tcp_write(c_pcb, send_buf, TCP_SEND_BUFSIZE, apiflags);
+//	err = tcp_write(c_pcb, send_buf, TCP_SEND_BUFSIZE, apiflags);
 	if (err != ERR_OK) {
 		xil_printf("TCP client: Error on tcp_write: %d\n", err);
 		return err;

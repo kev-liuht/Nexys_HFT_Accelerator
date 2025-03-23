@@ -77,15 +77,31 @@ def handle_incoming_message(message):
     Handles an incoming message from the client.
     Decodes the message using the OUCHParser and logs the decoded message.
     """
+    if len(message) != 192:
+        logging.warning(f"Expected 192 bytes but got {len(message)}")
+        return
+
+    # Extract the first 4 bytes as the portfolio number
+    portfolio_number = message[:4]
+
+    # Proceed to parse every 49 bytes of the remaining data
     parser = OUCHParser()
-    message_type_code = message[:1]
-    message_data = message[1:]
-    decoded_message = parser.decode_message(message_type_code, message_data)
-    if decoded_message is not None:
-        parser.print_human_readable_message(decoded_message)
-    else:
-        logging.warning(f"Unknown message type: {message_type_code}")
-    pass
+    chunk_data = message[4:]
+    chunk_size = 49
+    for i in range(0, len(chunk_data), chunk_size):
+        chunk = chunk_data[i:i+chunk_size]
+        if len(chunk) < chunk_size:
+            logging.warning(f"Incomplete OUCH message of size {len(chunk)}")
+            break
+        message_type_code = chunk[:1]
+        message_data = chunk[1:]
+        decoded_message = parser.decode_message(message_type_code, message_data)
+        if decoded_message is not None:
+            parser.print_human_readable_message(decoded_message)
+        else:
+            logging.warning(f"Unknown message type: {message_type_code}")
+
+    print(f"Portfolio number: {portfolio_number}")
 
 def receive_nonblocking(conn):
     """
