@@ -149,7 +149,7 @@ def main():
 
             message_index = 0
 
-            # Send the first (N-1) messages with a 0.5s delay
+            # Send the messages with a 0.5s delay, pausing every 18 messages
             while message_index < total_msgs - 1:
                 full_message = messages[message_index]
                 try:
@@ -160,32 +160,41 @@ def main():
                     break
 
                 message_index += 1
-                # Wait 0.5 seconds before sending the next message
-                time.sleep(0.5)
+                # # Check if current index is a multiple of 18 to pause
+                # if message_index % 80 == 0:
+                #     print("Press [ENTER] to send the next 80 messages.")
+                #     try:
+                #         input()  # Wait for user input
+                #     except EOFError:
+                #         print("EOF on stdin. Stopping.")
+                #         conn.close()
+                #         break
 
-            # Now send the LAST message, waiting for user input first
-            if message_index == total_msgs - 1:
-                # Only do this if there's indeed a last message
-                print("Press [ENTER] to send the final message.")
-                try:
-                    user_input = sys.stdin.readline()
-                    # If user closes input, break
-                    if not user_input:
-                        print("No more console input. Stopping.")
-                        conn.close()
-                        break
-                except EOFError:
-                    print("EOF on stdin. Stopping.")
-                    conn.close()
-                    break
+                time.sleep(0.2)
 
-                # Send the final message
-                final_message = messages[message_index]
-                try:
-                    conn.sendall(final_message)
-                    logging.debug(f"Sent FINAL message {message_index}, length={len(final_message)}")
-                except BrokenPipeError:
-                    print("Client disconnected unexpectedly.")
+            # # Now send the LAST message, waiting for user input first
+            # if message_index % 18 == 0:
+            #     # Only do this if there's indeed a last message
+            #     print("Press [ENTER] to send the next 20 messages.")
+            #     try:
+            #         user_input = sys.stdin.readline()
+            #         # If user closes input, break
+            #         if not user_input:
+            #             print("No more console input. Stopping.")
+            #             conn.close()
+            #             break
+            #     except EOFError:
+            #         print("EOF on stdin. Stopping.")
+            #         conn.close()
+            #         break
+            #
+            #     # Send the final message
+            #     final_message = messages[message_index]
+            #     try:
+            #         conn.sendall(final_message)
+            #         logging.debug(f"Sent FINAL message {message_index}, length={len(final_message)}")
+            #     except BrokenPipeError:
+            #         print("Client disconnected unexpectedly.")
 
             conn.close()
             print("Connection closed.")
