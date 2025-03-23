@@ -9,5 +9,4 @@ create_clock -period 10 -name default
 csynth_design
 config_export \
   -version  "1.0.0"
-
 export_design -format ip_catalog
