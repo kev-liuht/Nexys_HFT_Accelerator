@@ -1,14 +1,20 @@
 import socket
+import struct
 from itch_parser import ITCHParser
 from Orderbook import OrderBookManager
+from TaParser import TaParser
+from CovUpdate import CovarianceUpdateStack
+from QrDecompLinSolver import QRDecompLinSolver
+from OrderGen import OrderGenerator
 import logging
 
-LOGGING_LEVEL = logging.DEBUG  # Change to logging.INFO for less verbose logging
+LOGGING_LEVEL = logging.INFO  # Change to logging.INFO for less verbose logging
 LOGGING_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
 logging.basicConfig(format=LOGGING_FORMAT, level=LOGGING_LEVEL)
 
 # TCP SERVER CONFIG
-SERVER_IP = '192.168.1.11'
+# SERVER_IP = '192.168.1.11'
+SERVER_IP = 'localhost'
 SERVER_PORT = 22
 SIDE_BID = 0
 SIDE_ASK = 1
@@ -18,6 +24,10 @@ def main():
     server_port = SERVER_PORT
     parser = ITCHParser()
     orderbook = OrderBookManager()
+    ta_parser = TaParser()
+    ta_cov = CovarianceUpdateStack()
+    ta_qr = QRDecompLinSolver()
+    ta_og = OrderGenerator()
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     # >>> ADDED: Counter to track how many order-related messages we've processed.
@@ -114,9 +124,30 @@ def main():
                             # Every 20 messages, do a publish
                             # Publish the entire snapshot for all stocks
                             snapshot = orderbook.publish_snapshot()
-                            print("Full snapshot:")
+                            logging.info("Order book: ")
                             for entry in snapshot:
-                                print(entry)  # or orderbook.publish_snapshot()
+                                logging.info(entry)  # or orderbook.publish_snapshot()
+                            
+                            # TA Parser
+                            market_prices = ta_parser.update(snapshot)
+                            logging.info(f"TA Parser: {market_prices}")
+
+                            # Covariance Update
+                            K, proceed = ta_cov.update(market_prices)
+                            logging.info(f"Covariance Matrix: {K}\tProceed: {proceed}")
+                            
+                            if proceed:
+                                # QR Decomposition and linear solver
+                                weights = ta_qr.solve(K)
+                                logging.info(f"QR: Solved weights: {weights}")
+
+                                # Order Generation
+                                output_blob = ta_og.order_gen(weights, market_prices)
+                                logging.info(f"Order Generation (hex): {output_blob.hex()}")
+                                
+                                # Send the order generation msg to the server
+                                client_socket.send(output_blob)
+                                print(f"Packet sent to server.")
                             order_count = 0
 
                 data = data[2 + length :]

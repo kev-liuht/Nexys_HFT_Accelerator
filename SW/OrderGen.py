@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 class OrderGenerator:
     """
     Order generation tracks the internal state of the account and produces OUCH orders 

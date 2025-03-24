@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 class QRDecompLinSolver:
     """
     QRDecompLinSolver performs Givens-based QR decomposition on a 4x4 matrix,
