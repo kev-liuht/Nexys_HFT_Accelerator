@@ -87,7 +87,7 @@ def handle_incoming_message(message):
     # Proceed to parse every 49 bytes of the remaining data
     parser = OUCHParser()
     chunk_data = message[4:]
-    chunk_size = 49
+    chunk_size = 48
     for i in range(0, len(chunk_data), chunk_size):
         chunk = chunk_data[i:i+chunk_size]
         if len(chunk) < chunk_size:
