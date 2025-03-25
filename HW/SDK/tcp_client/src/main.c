@@ -246,7 +246,7 @@ int main()
 		fsl_isinvalid(invalid_flag);
 		if(!invalid_flag){ // if there is data to send
 			for(int i = 1; i < TCP_SEND_BUF_UINT32_SIZE; i++){
-				getfslx(send_buf[i], 0, FSL_ATOMIC);
+				getfslx(send_buf[i], 0, FSL_NONBLOCKING_ATOMIC);
 			}
 			while (tcp_sndbuf(c_pcb) < TCP_SEND_BUF_BYTE_SIZE); // wait until there is enough space in the buffer. This should be right away
 			err = tcp_write(c_pcb, send_buf, TCP_SEND_BUF_BYTE_SIZE, apiflags);
