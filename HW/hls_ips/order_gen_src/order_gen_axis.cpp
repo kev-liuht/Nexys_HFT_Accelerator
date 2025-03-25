@@ -2,6 +2,7 @@
 #include "ap_fixed.h"
 #include "hls_stream.h"
 #include <stdint.h>
+#include <hls_math.h>
 
 #define NUM_STOCKS         4
 #define ORDER_MSG_WORDS    12
@@ -131,7 +132,12 @@ void order_gen_axis(
     for (int i = 0; i < NUM_STOCKS; i++){
 #pragma HLS PIPELINE II=1
         axis_word_t in_weight_val = in_stream_weights.read();
-        weight_vals[i] = apuint32_to_float(in_weight_val.data);
+        float val = apuint32_to_float(in_weight_val.data);
+        //weight_vals[i] = hls::isnan(val) ? latched_weights[i] : val;
+        if (val > 1 || val < 0) {
+        	return; // return if in_stream weights are invalid, skip cycle
+        }
+        weight_vals[i] = val;
         latched_weights[i] = weight_vals[i];
     }
 
