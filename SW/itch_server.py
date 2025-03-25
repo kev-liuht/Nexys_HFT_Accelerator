@@ -8,6 +8,7 @@ import sys
 import time
 import threading
 import select
+import argparse
 
 from ouch_parser import OUCHParser
 
@@ -36,6 +37,15 @@ HOST = '192.168.1.11'
 PORT = 22
 # HOST = 'localhost'
 # PORT = 22
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="ITCH server")
+    parser.add_argument("--host", type=str, default=HOST, help="Host IP address to bind to")
+    parser.add_argument("--port", type=int, default=PORT, help="Port number to bind to")
+    parser.add_argument("--file", type=str, default=FILE_NAME, help="File to read ITCH data from")
+    parser.add_argument("--benchmark", action="store_true", help="Run the server in benchmark mode")
+    return parser.parse_args()
+
 def reverse_endian_bytes(data: bytes) -> bytes:
     if len(data) % 4 != 0:
         raise ValueError("Input length must be divisible by 4")
@@ -49,10 +59,6 @@ def reverse_endian_bytes(data: bytes) -> bytes:
     
     return bytes(result)
 
-# Example usage
-data = bytes.fromhex("70426d05")
-converted = reverse_endian_bytes(data)
-print(converted.hex())  # Output: '056d4270'
 
 def read_messages(file_path):
     """
@@ -144,6 +150,8 @@ def receive_nonblocking(conn):
                     data = reverse_endian_bytes(data)
                     logging.debug(f"Received data: {data.hex()}")
                     handle_incoming_message(data)
+                    if args.benchmark:
+                        num_input_messages += 4
                 else:
                     # No data indicates the client closed the connection.
                     logging.debug("No data received. Client may have disconnected.")
@@ -167,6 +175,11 @@ def main():
     - Pauses and waits for user [ENTER] before sending the final message.
     """
     # Prepare TCP server
+    args = parse_args()
+    HOST = args.host
+    PORT = args.port
+    FILE_NAME = args.file
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow immediate reuse
         sock.bind((HOST, PORT))
@@ -177,6 +190,11 @@ def main():
         while True:
             conn, addr = sock.accept()
             print(f"Connected to {addr}")
+
+            if args.benchmark:
+                start_time = datetime.now()
+                num_input_messages = 0
+                num_output_messages = 0
 
             # Start a thread to receive incoming messages non-blockingly
             recv_thread = threading.Thread(target=receive_nonblocking, args=(conn,), daemon=True)
@@ -195,6 +213,8 @@ def main():
                 try:
                     conn.sendall(full_message)
                     logging.debug(f"Sent message {message_index}, length={len(full_message)}")
+                    if args.benchmark:
+                        num_output_messages += 1
                 except BrokenPipeError:
                     print("Client disconnected unexpectedly.")
                     break
@@ -237,6 +257,18 @@ def main():
             #         print("Client disconnected unexpectedly.")
 
             conn.close()
+            if args.benchmark:
+                end_time = datetime.now()
+                duration = end_time - start_time
+                duration_seconds = duration.total_seconds()
+                
+                logging.info(f"Benchmark results:")
+                logging.info(f"Total input messages: {num_input_messages}")
+                logging.info(f"Total output messages: {num_output_messages}")
+                logging.info(f"Duration: {duration_seconds:.2f} seconds")
+                logging.info(f"HFT Input Throughput: {num_input_messages / duration_seconds:.2f} messages/sec")
+                logging.info(f"HFT Output Throughput: {num_output_messages / duration_seconds:.2f} messages/sec")
+                
             print("Connection closed.")
 
 if __name__ == "__main__":
