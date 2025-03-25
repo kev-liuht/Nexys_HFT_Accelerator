@@ -39,7 +39,26 @@ class OUCHParser:
                     ('CIOrdID', ('alpha', 14)),
                     ('AppendageLength', ('integer', 2)),
                     ('Appendage', ('alpha', 1)),
-                ]
+                ],
+                'class': namedtuple(
+                    'EnterOrderMessage',
+                    [
+                        'MessageType',
+                        'UserRefNum',
+                        'Side',
+                        'Quantity',
+                        'Symbol',
+                        'Price',
+                        'TimeInForce',
+                        'Display',
+                        'Capacity',
+                        'InterMarketSweepEligibility',
+                        'CrossType',
+                        'CIOrdID',
+                        'AppendageLength',
+                        'Appendage',
+                    ]
+                )
             },
         }
 

@@ -239,12 +239,14 @@ int main()
 		uint32_t send_buf[TCP_SEND_BUF_UINT32_SIZE];
 		u8_t apiflags = TCP_WRITE_FLAG_COPY;
 		err_t err;
+		int invalid_flag = 0; 
 
 		// check if there is data to send
-		tgetfslx(send_buf[0], 0, FSL_NONBLOCKING);
-		if(send_buf[0] != 0){ // if there is data to send
+		ngetfsl(send_buf[0], 0);
+		fsl_isinvalid(invalid_flag);
+		if(!invalid_flag){ // if there is data to send
 			for(int i = 1; i < TCP_SEND_BUF_UINT32_SIZE; i++){
-				getfslx(send_buf[i], 0, FSL_DEFAULT);
+				getfslx(send_buf[i], 0, FSL_ATOMIC);
 			}
 			while (tcp_sndbuf(c_pcb) < TCP_SEND_BUF_BYTE_SIZE); // wait until there is enough space in the buffer. This should be right away
 			err = tcp_write(c_pcb, send_buf, TCP_SEND_BUF_BYTE_SIZE, apiflags);
@@ -453,22 +455,21 @@ static err_t tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
 
 
 	// ** Alternative Order Gen Polling here: **
-	// uint32_t send_buf[TCP_SEND_BUF_UINT32_SIZE];
-	// u8_t apiflags = TCP_WRITE_FLAG_COPY;
-	// err_t err;
-
-	// // check if there is data to send
-	// tgetfslx(send_buf[0], 0, FSL_NONBLOCKING);
-	// if(send_buf[0] != 0){ // if there is data to send
-	// 	for(int i = 1; i < TCP_SEND_BUF_UINT32_SIZE; i++){
-	// 		getfslx(send_buf[i], 0, FSL_DEFAULT);
-	// 	}
-	// 	while (tcp_sndbuf(c_pcb) < TCP_SEND_BUF_BYTE_SIZE); // wait until there is enough space in the buffer. This should be right away
-	// 	err = tcp_write(c_pcb, send_buf, TCP_SEND_BUF_BYTE_SIZE, apiflags);
-	// 	if (err != ERR_OK) {
-	// 		xil_printf("TCP client: Error on tcp_write: %d after FSL\n", err);
-	// 	}
-	// }
+//	uint32_t send_buf[TCP_SEND_BUF_UINT32_SIZE];
+//	u8_t apiflags = TCP_WRITE_FLAG_COPY;
+//
+//	// check if there is data to send
+//	tgetfslx(send_buf[0], 0, FSL_NONBLOCKING);
+//	if(send_buf[0] != 0){ // if there is data to send
+//		for(int i = 1; i < TCP_SEND_BUF_UINT32_SIZE; i++){
+//			getfslx(send_buf[i], 0, FSL_DEFAULT);
+//		}
+//		while (tcp_sndbuf(c_pcb) < TCP_SEND_BUF_BYTE_SIZE); // wait until there is enough space in the buffer. This should be right away
+//		err = tcp_write(c_pcb, send_buf, TCP_SEND_BUF_BYTE_SIZE, apiflags);
+//		if (err != ERR_OK) {
+//			xil_printf("TCP client: Error on tcp_write: %d after FSL\n", err);
+//		}
+//	}
 	//Free the received pbuf
 	pbuf_free(p);
 
