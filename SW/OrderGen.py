@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import math
+
 class OrderGenerator:
     """
     Order generation tracks the internal state of the account and produces OUCH orders 
@@ -99,7 +101,6 @@ class OrderGenerator:
         msg[45] = 0
         msg[46] = 0
         # msg[47] is already 0
-        
         return msg
 
     def order_gen(self, weight_vals, stock_prices):
@@ -119,8 +120,11 @@ class OrderGenerator:
         """
         NUM_STOCKS = 4
         
-        # Latch the new weight vector.
-        self.latched_weights = weight_vals[:]
+        # Latch the new weight vector; do a NaN check first.
+        for i in range(NUM_STOCKS):
+            self.latched_weights[i] = self.latched_weights[i] if math.isnan(weight_vals[i]) else weight_vals[i]
+            
+        # self.latched_weights = weight_vals[:]
         
         # Compute portfolio value: cash + sum(holdings * stock_price)
         portfolio_value = self.cash
@@ -129,6 +133,7 @@ class OrderGenerator:
         
         # Convert portfolio value to fixed-point.
         portfolio_fixed = self.float_to_fixedpt(portfolio_value)
+        print(f"\tportfolio: {portfolio_value}\tportfolio_fixedpt:{portfolio_fixed}\tportfolio_raw:{hex(portfolio_fixed)}")
         
         # Begin output: 4 bytes for portfolio value (big-endian).
         output = bytearray()
@@ -141,6 +146,8 @@ class OrderGenerator:
         for i in range(NUM_STOCKS):
             # Desired allocation in dollars = weight * portfolio_value.
             desired_alloc = self.latched_weights[i] * portfolio_value
+            # print(f"\tdesired_alloc:{desired_alloc}")
+
             # Compute target shares (unsigned integer).
             target_shares = int(desired_alloc / stock_prices[i])
             new_holdings[i] = float(target_shares)
@@ -157,7 +164,6 @@ class OrderGenerator:
             else:
                 side = 'N'  # No action
                 quantity = 0
-            
             # Pack the order message (48 bytes) for this stock.
             order_msg = self.pack_order(self.userRefNum, side, quantity, self.symbols[i], stock_prices[i])
             self.userRefNum += 1
@@ -168,10 +174,23 @@ class OrderGenerator:
         # Update internal state.
         self.holdings = new_holdings
         self.cash = portfolio_value - total_cost
-        
+
+        output = self.reverse_endian_bytes(output)
         # Return final output: 4 bytes portfolio + 4 orders x 48 bytes = 196 bytes.
         return bytes(output)
+    
+    def reverse_endian_bytes(self, data: bytearray) -> bytearray:
+        if len(data) % 4 != 0:
+            raise ValueError("Input length must be divisible by 4")
 
+        result = bytearray()
+
+        for i in range(0, len(data), 4):
+            chunk = data[i:i+4]
+            reversed_chunk = chunk[::-1]  # Reverse the byte order
+            result.extend(reversed_chunk)
+
+        return result
 
 # Example usage:
 if __name__ == "__main__":

@@ -32,10 +32,10 @@ if not FILE_NAME.exists():
     sys.exit(1)
 
 # TCP SERVER CONFIG
-HOST = '192.168.1.11'
-PORT = 22
-# HOST = 'localhost'
+# HOST = '192.168.1.11'
 # PORT = 22
+HOST = 'localhost'
+PORT = 22
 def reverse_endian_bytes(data: bytes) -> bytes:
     if len(data) % 4 != 0:
         raise ValueError("Input length must be divisible by 4")
@@ -100,7 +100,7 @@ def handle_incoming_message(message):
 
     # Extract the first 4 bytes as the portfolio number
     portfolio_number = int.from_bytes(message[:4], 'big')
-    logging.info(f"Portfolio number: {portfolio_number}")
+    logging.info(f"Portfolio number: {portfolio_number/10000}")
     # Proceed to parse every 49 bytes of the remaining data
     parser = OUCHParser()
     chunk_data = message[4:]
@@ -116,7 +116,8 @@ def handle_incoming_message(message):
         if decoded_message is not None:
             # parser.print_human_readable_message(decoded_message)
             # example of using the decoded message
-            logging.info(f"OUCH ENTER ORDER MESSAGE: {decoded_message.Symbol}: Quantity={decoded_message.Quantity}, Price={decoded_message.Price}")
+            logging.info(f"OUCH ENTER ORDER MESSAGE: {decoded_message.Symbol}: Side={decoded_message.Side}, Quantity={decoded_message.Quantity}, Price={decoded_message.Price}")
+            # logging.info(f"OUCH message Received: {decoded_message}")
         else:
             logging.warning(f"Unknown message type: {message_type_code}")
 

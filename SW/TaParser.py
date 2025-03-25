@@ -15,8 +15,8 @@ class TaParser:
 
             # Compute weighted average market price
             total_weight = sum(ask_qty) + sum(bid_qty)
-            weighted_price = sum([p * q for p, q in zip(ask_prices, ask_qty)]) + \
-                             sum([p * q for p, q in zip(bid_prices, bid_qty)])
+            weighted_price = sum([p / 10000 * q for p, q in zip(ask_prices, ask_qty)]) + \
+                             sum([p / 10000 * q for p, q in zip(bid_prices, bid_qty)])
 
             market_prices[stock_index] = weighted_price / total_weight if total_weight > 0 else 0.0
 
