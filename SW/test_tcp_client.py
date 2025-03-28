@@ -100,7 +100,7 @@ def main():
                             orderbook.cancel_order(
                                 stock_id=stock_id,
                                 order_id=order_id,
-                                cancel_qty=decoded_message.CanceledShares
+                                cancel_qty=quantity
                             )
 
                         # c) Execute
@@ -108,7 +108,7 @@ def main():
                             orderbook.execute_order(
                                 stock_id=stock_id,
                                 order_id=order_id,
-                                execute_qty=decoded_message.ExecutedShares
+                                execute_qty=quantity
                             )
 
                         # d) Delete
