@@ -78,7 +78,7 @@ struct netif *echo_netif;
 #define DEST_PORT 22
 
 #define TCP_SEND_BUF_UINT32_SIZE (4 + 4 * 48)/4 // 4 bytes for portfolio, 48 bytes for each stock
-#define TCP_SEND_BUF_BYTE_SIZE TCP_SEND_BUF_UINT32_SIZE * 4 // 4 bytes for portfolio, 48 bytes for each stock
+#define TCP_SEND_BUFSIZE TCP_SEND_BUF_UINT32_SIZE * 4 // 4 bytes for portfolio, 48 bytes for each stock
 //Function prototypes
 #if LWIP_IPV6==1
 void print_ip6(char *msg, ip_addr_t *ip);
@@ -248,10 +248,14 @@ int main()
 			for(int i = 1; i < TCP_SEND_BUF_UINT32_SIZE; i++){
 				getfslx(send_buf[i], 0, FSL_ATOMIC);
 			}
-			while (tcp_sndbuf(c_pcb) < TCP_SEND_BUF_BYTE_SIZE); // wait until there is enough space in the buffer. This should be right away
-			err = tcp_write(c_pcb, send_buf, TCP_SEND_BUF_BYTE_SIZE, apiflags);
+			while (tcp_sndbuf(c_pcb) < TCP_SEND_BUFSIZE); // wait until there is enough space in the buffer. This should be right away
+			err = tcp_write(c_pcb, send_buf, TCP_SEND_BUFSIZE, apiflags);
 			if (err != ERR_OK) {
 				xil_printf("TCP client: Error on tcp_write: %d after FSL\n", err);
+			}
+			err = tcp_output(c_pcb);
+			if (err != ERR_OK) {
+				xil_printf("TCP client: Error on tco_output: %d after FSL\n", err);
 			}
 		}
 
@@ -393,21 +397,21 @@ static err_t tcp_client_connected(void *arg, struct tcp_pcb *tpcb, err_t err)
 	//ADD CODE HERE to do when connection established
 
 	//Just send a single packet
-	// u8_t apiflags = TCP_WRITE_FLAG_COPY | TCP_WRITE_FLAG_MORE;
-	// char send_buf[TCP_SEND_BUFSIZE];
-	// u32_t i;
+	 u8_t apiflags = TCP_WRITE_FLAG_COPY | TCP_WRITE_FLAG_MORE;
+	 char send_buf[5];
+	 u32_t i;
 
-	// for(i = 0; i < TCP_SEND_BUFSIZE-1; i = i + 1)
-	// {
-	// 	send_buf[i] = i+'a';
-	// }
-	// send_buf[TCP_SEND_BUFSIZE-1] = '\n';
+	 for(i = 0; i < 5-1; i = i + 1)
+	 {
+	 	send_buf[i] = i+'a';
+	 }
+	 send_buf[5-1] = '\n';
 
 	//Loop until enough room in buffer (should be right away)
-	while (tcp_sndbuf(c_pcb) < TCP_SEND_BUF_BYTE_SIZE);
+	while (tcp_sndbuf(c_pcb) < TCP_SEND_BUFSIZE);
 
 	//Enqueue some data to send
-//	err = tcp_write(c_pcb, send_buf, TCP_SEND_BUFSIZE, apiflags);
+	err = tcp_write(c_pcb, send_buf, TCP_SEND_BUFSIZE, apiflags);
 	if (err != ERR_OK) {
 		xil_printf("TCP client: Error on tcp_write: %d\n", err);
 		return err;
@@ -464,8 +468,8 @@ static err_t tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
 //		for(int i = 1; i < TCP_SEND_BUF_UINT32_SIZE; i++){
 //			getfslx(send_buf[i], 0, FSL_DEFAULT);
 //		}
-//		while (tcp_sndbuf(c_pcb) < TCP_SEND_BUF_BYTE_SIZE); // wait until there is enough space in the buffer. This should be right away
-//		err = tcp_write(c_pcb, send_buf, TCP_SEND_BUF_BYTE_SIZE, apiflags);
+//		while (tcp_sndbuf(c_pcb) < TCP_SEND_BUFSIZE); // wait until there is enough space in the buffer. This should be right away
+//		err = tcp_write(c_pcb, send_buf, TCP_SEND_BUFSIZE, apiflags);
 //		if (err != ERR_OK) {
 //			xil_printf("TCP client: Error on tcp_write: %d after FSL\n", err);
 //		}
