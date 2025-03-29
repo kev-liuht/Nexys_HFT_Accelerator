@@ -4,12 +4,12 @@ import math
 # -------------------------------------------------------------------------
 # Constants (adjust these as desired)
 # -------------------------------------------------------------------------
-CACHE_SIZE = 5
+
 NUM_STOCKS = 4
 MIN_PRICE_INIT = [1000000, 1000000, 1000000, 1000000]  # Example initialization
-TICK_INIT = [10000, 10000, 10000, 10000]  # Example initialization
+TICK_INIT = [2500, 2500, 2500, 2500]  # Example initialization
 MAX_ORDER_NUM = 1024
-MAX_LEVELS = 128
+MAX_LEVELS = 256
 
 SIDE_BID = 0
 SIDE_ASK = 1
