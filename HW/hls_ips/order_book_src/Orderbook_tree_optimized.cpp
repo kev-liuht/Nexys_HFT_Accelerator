@@ -231,8 +231,8 @@ void Orderbook_wrapper(
         initialized = true;
     }
 
-    // Publish order snapshot every 20 new orders
-    if (num_new_order >= 20) {
+    // Publish order snapshot every 10 new orders
+    if (num_new_order >= 10) {
         num_new_order = 0;
         publish(outStream_algo);
     }
