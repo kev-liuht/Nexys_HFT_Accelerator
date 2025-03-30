@@ -18,11 +18,13 @@ class QRDecompLinSolver:
         if value < 0:
             raise ValueError("Cannot compute sqrt of a negative value.")
         if value == 0:
-            return 0.0
+            return 0.0, True
         x = value
         for _ in range(iterations):
+            if x == 0:
+                return x, False
             x = 0.5 * (x + value / x)
-        return x
+        return x, True
 
     def givens_qr(self, A, b):
         """
@@ -35,7 +37,9 @@ class QRDecompLinSolver:
             for j in range(i + 1, N):
                 a_val = A[i][i]
                 b_val = A[j][i]
-                r = self.my_sqrt(a_val * a_val + b_val * b_val)
+                r, proceed_qr = self.my_sqrt(a_val * a_val + b_val * b_val)
+                if not proceed_qr:
+                    return
                 if r == 0.0:
                     continue
                 c = a_val / r
@@ -59,8 +63,11 @@ class QRDecompLinSolver:
             sum_ax = 0.0
             for j in range(i + 1, N):
                 sum_ax += A[i][j] * x[j]
+            if A[i][i] == 0:
+                return x, False
             x[i] = (b[i] - sum_ax) / A[i][i]
-        return x
+
+        return x, True
 
     def solve(self, K):
         """
@@ -84,8 +91,9 @@ class QRDecompLinSolver:
         self.givens_qr(A, b)
 
         # Perform back substitution to solve for x.
-        x = self.back_substitution(A, b)
-
+        x, proceed_sl = self.back_substitution(A, b)
+        if not proceed_sl:
+            return x, False
         # First normalization: make sum(x) == 1.
         sum_x = sum(x)
         if sum_x != 0.0:
@@ -99,7 +107,7 @@ class QRDecompLinSolver:
         if sum_pos != 0.0:
             x = [val / sum_pos for val in x]
 
-        return x
+        return x, True
 
 
 # Example: Test the implementation with a sample 4x4 matrix K.
@@ -115,7 +123,10 @@ if __name__ == "__main__":
     qr_solver = QRDecompLinSolver()
 
     # Compute the min-variance weights.
-    weights = qr_solver.solve(K)
+    weights, proceed = qr_solver.solve(K)
     print("Computed Portfolio Weights:")
-    for i, w in enumerate(weights):
-        print(f"  Asset {i+1}: {w:.6f}")
+    if proceed:
+        for i, w in enumerate(weights):
+            print(f"  Asset {i+1}: {w:.6f}")
+    else:
+        print("division zero case hit")

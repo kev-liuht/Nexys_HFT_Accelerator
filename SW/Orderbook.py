@@ -6,8 +6,8 @@ import math
 # -------------------------------------------------------------------------
 
 NUM_STOCKS = 4
-MIN_PRICE_INIT = [1000000, 1000000, 1000000, 1000000]  # Example initialization
-TICK_INIT = [2500, 2500, 2500, 2500]  # Example initialization
+MIN_PRICE_INIT = [1000000, 2480000, 2050000, 1680000]  # Example initialization
+TICK_INIT = [600, 600, 600, 600]  # Example initialization
 MAX_ORDER_NUM = 1024
 MAX_LEVELS = 256
 

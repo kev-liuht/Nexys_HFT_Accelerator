@@ -155,7 +155,7 @@ void order_gen_axis(
     // Generate orders using the new weight vector.
     float new_holdings[NUM_STOCKS];
     float total_cost = 0.0f;
-    const char symbols[NUM_STOCKS][9] = {"AAPL    ", "NVDA    ", "MSFT    ", "INTC    "};
+    const char symbols[NUM_STOCKS][9] = {"AMD_    ", "JPM_    ", "CUST    ", "PG__    "};
     for (int i = 0; i < NUM_STOCKS; i++){
 #pragma HLS PIPELINE II=1
         // Desired allocation in dollars = weight * portfolio_value

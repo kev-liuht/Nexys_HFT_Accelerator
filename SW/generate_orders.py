@@ -11,46 +11,55 @@ def generate_orders_injected_cancels(
     random_seed=None
 ):
     """
-    1) For each row in config, generate `num_orders_per_config` 'A' (Add) orders
-       with a price determined by linear interpolation between `start_price_a`
-       and `start_price_b`, plus a Gaussian noise of `noise_pct`%. The order_ref_num
-       is ascending (1,2,3,...) for every new Add.
+    1) We read each row in `config_csv_path` to get stock parameters. Instead of
+       generating all orders for row0 then row1, we do a "parallel" or round-robin approach:
+         for i in [0..num_orders_per_config-1]:
+             for each config row:
+                 create Add #i for that row
+                 optionally inject random cancels
+       so that the final event sequence is interleaved across stocks.
 
-    2) Immediately after each 'A', randomly insert up to `max_injected_events_after_each_add`
-       partial-cancel (X/E) or delete (D) events referencing any active order.
+    2) The price for each 'A' is determined by linear interpolation between
+       start_price_a -> start_price_b plus Gaussian noise of noise_pct%.
 
-    3) Write all events (A, X, E, D) to `output_csv_path` in the order generated.
+    3) Cancels (X/E) or Deletes (D) can be interspersed after each Add, referencing
+       any still-active order. When we do a full Delete (D), we bias the selection
+       toward older orders by using a weighted random choice proportional to their "age".
     """
 
     if random_seed is not None:
         random.seed(random_seed)
 
-    # Read your config CSV
+    # -------------------------
+    # Load config data into a DataFrame
+    # -------------------------
     config_df = pd.read_csv(config_csv_path)
+    # Convert it into a list of dicts for convenience
+    configs = []
+    for _, row in config_df.iterrows():
+        configs.append({
+            "stock_id":      row["stock_id"],
+            "buy_sell":      row["buy_sell"],      # 'B' or 'S'
+            "min_price":     int(row["min_price"]),
+            "max_price":     int(row["max_price"]),
+            "tick":          int(row["tick"]),
+            "start_price_a": float(row["start_price_a"]),
+            "start_price_b": float(row["start_price_b"]),
+            "noise_pct":     float(row["noise_pct"])
+        })
 
-    # This is the final list of events in the exact order they are generated
+    # -------------------------
+    # Prepare to build the final event list
+    # -------------------------
     final_events = []
-
-    # We'll assign a strictly ascending order_ref_num to each new "A" event:
     next_order_ref = 1
+    current_event_index = 0  # increments for each event we add
 
-    # For tracking each order's state:
-    # active_orders[order_ref] = {
-    #     "stock_id": str or int,
-    #     "buy_sell": "B" or "S",
-    #     "remaining_shares": int,
-    #     "deleted": bool
-    # }
+    # Track active orders: {order_ref: { ... }}
+    # We'll store creation_event_index to track how long it has been in the market
     active_orders = {}
 
-    def create_event(
-        header_type,
-        order_ref_num,
-        side,
-        num_shares,
-        stock_id,
-        price
-    ):
+    def create_event(header_type, order_ref_num, side, num_shares, stock_id, price):
         """Helper to build a row in the required format."""
         return [
             header_type,     # e.g. 'A', 'X', 'E', or 'D'
@@ -61,57 +70,71 @@ def generate_orders_injected_cancels(
             price
         ]
 
-    # ---------------------------------------------------------------
-    # Main logic: for each row in config, we generate `num_orders_per_config`
-    # 'A' events. The price for each 'A' is determined by linear interpolation
-    # from start_price_a -> start_price_b, plus Gaussian noise of noise_pct%.
-    # ---------------------------------------------------------------
-    for _, cfg_row in config_df.iterrows():
-        stock_id = cfg_row["stock_id"]
-        side = cfg_row["buy_sell"]      # 'B' or 'S'
-        min_price = int(cfg_row["min_price"])
-        max_price = int(cfg_row["max_price"])
-        tick = int(cfg_row["tick"])
+    # A helper to perform a weighted random choice (for older-order bias).
+    # weights[i] corresponds to the candidate at index i in `candidates`.
+    def weighted_random_choice(candidates, weights):
+        # If all weights are zero, fallback to uniform random choice
+        total_weight = sum(weights)
+        if total_weight <= 0:
+            return random.choice(candidates)
 
-        # New columns for linear + noise
-        start_price_a = float(cfg_row["start_price_a"])
-        start_price_b = float(cfg_row["start_price_b"])
-        noise_pct = float(cfg_row["noise_pct"])  # e.g. 5.0 means 5%
+        r = random.uniform(0, total_weight)
+        upto = 0
+        for c, w in zip(candidates, weights):
+            upto += w
+            if r <= upto:
+                return c
 
-        # Generate 'num_orders_per_config' prices via linear interpolation
-        # from start_price_a to start_price_b.
-        # Example: if num_orders_per_config=4,
-        # i = 0 -> fraction=0.0 -> price = start_price_a
-        # i = 1 -> fraction=0.33 -> ...
-        # i = 2 -> fraction=0.66 -> ...
-        # i = 3 -> fraction=1.0 -> price = start_price_b
-        for i in range(num_orders_per_config):
-            fraction = i / max(num_orders_per_config - 1, 1)  # avoids div-by-zero if =1
+        # Fallback (shouldn't normally reach here if weights > 0)
+        return candidates[-1]
+
+    # -------------------------
+    # Round-robin loop:
+    #   Outer loop = num_orders_per_config
+    #   Inner loop = each config row
+    # -------------------------
+    for i in range(num_orders_per_config):
+        # fraction for price interpolation = i / (num_orders_per_config - 1)
+        # We guard against dividing by zero if num_orders_per_config=1
+        fraction = 0.0
+        if num_orders_per_config > 1:
+            fraction = i / (num_orders_per_config - 1)
+
+        for cfg in configs:
+            stock_id      = cfg["stock_id"]
+            side          = cfg["buy_sell"]   # 'B' or 'S'
+            min_price     = cfg["min_price"]
+            max_price     = cfg["max_price"]
+            tick          = cfg["tick"]
+            start_price_a = cfg["start_price_a"]
+            start_price_b = cfg["start_price_b"]
+            noise_pct     = cfg["noise_pct"]
+
+            # -----------------------
+            # Calculate the base interpolated price
+            # -----------------------
             base_price = start_price_a + (start_price_b - start_price_a) * fraction
 
-            # Add Gaussian noise. The stdev is (noise_pct% of current base_price).
+            # Gaussian noise: stdev is noise_pct% of base_price
             stdev = base_price * (noise_pct / 100.0)
             noise = random.gauss(0, stdev) if stdev > 0 else 0.0
 
-            # Final price, rounded and optionally clamped to [min_price, max_price]
             raw_price = base_price + noise
+            # Round to integer
             final_price = int(round(raw_price))
-
-            # If you still want to enforce min/max bounds (optional):
+            # Clamp to [min_price, max_price]
             final_price = max(min_price, min(max_price, final_price))
+            # Snap to nearest tick
+            if tick > 0:
+                final_price = (final_price // tick) * tick
 
-            # Now ensure the final_price is aligned to 'tick' if you want (optional)
-            # One approach is to move final_price to the nearest multiple of tick:
-            #   final_price = (final_price // tick) * tick
-            # but that can cause all sorts of collisions if tick is large. Do as needed.
-            # For example:
-            final_price = (final_price // tick) * tick
-
-            # 1) Create the A event
+            # -----------------------
+            # Create the 'A' (Add) event
+            # -----------------------
             order_ref = next_order_ref
             next_order_ref += 1
 
-            shares = random.randint(10, 100)  # or pick a shares logic as you wish
+            shares = random.randint(10, 100)
 
             a_event = create_event(
                 header_type="A",
@@ -122,33 +145,40 @@ def generate_orders_injected_cancels(
                 price=final_price
             )
             final_events.append(a_event)
+            current_event_index += 1
 
-            # Store in active orders
+            # Mark this order as active
             active_orders[order_ref] = {
                 "stock_id": stock_id,
                 "buy_sell": side,
                 "remaining_shares": shares,
-                "deleted": False
+                "deleted": False,
+                "creation_event_index": current_event_index
             }
 
-            # 2) After adding a new order, possibly inject random X/E/D events
+            # (Optional logic) skip injection ~50% of the time
+            if random.random() < 0.5:
+                continue
+
+            # -----------------------
+            # Inject random cancels (X/E or D) after the Add
+            # -----------------------
             num_injected = random.randint(0, max_injected_events_after_each_add)
             for _injected_idx in range(num_injected):
-                # Filter active orders that can still be canceled
+                # Filter orders that can be canceled (not deleted and shares>0)
                 candidates = [
                     (oref, info)
                     for oref, info in active_orders.items()
                     if (not info["deleted"]) and (info["remaining_shares"] > 0)
                 ]
                 if not candidates:
-                    break  # no valid orders to cancel/delete
+                    break
 
-                # Pick one at random
-                chosen_order_ref, chosen_info = random.choice(candidates)
+                # Choose partial cancel vs full delete
+                if random.random() < 0.2:
+                    # partial cancel (X/E) ~90% of the time, pick purely at random
+                    chosen_order_ref, chosen_info = random.choice(candidates)
 
-                # Decide if it's partial-cancel (X/E) or full delete (D)
-                if random.random() < 0.8:
-                    # partial-cancel 80% of the time
                     cancel_type = random.choice(["X", "E"])
                     max_cancelable = chosen_info["remaining_shares"]
                     cancel_qty = random.randint(1, max_cancelable)
@@ -162,12 +192,20 @@ def generate_orders_injected_cancels(
                         price=0
                     )
                     final_events.append(cevent)
+                    current_event_index += 1
 
                     chosen_info["remaining_shares"] -= cancel_qty
-                    # If that zeroes out the order, it's effectively done,
-                    # but not "deleted" (X/E is partial cancel).
                 else:
-                    # full delete 20% of the time
+                    # full delete ~10% of the time
+                    # Weighted choice by age: older orders more likely to be chosen
+                    ages = []
+                    for (oref, info) in candidates:
+                        # Add +1 to avoid zero weighting
+                        age = (current_event_index - info["creation_event_index"]) + 1
+                        ages.append(age)
+
+                    chosen_order_ref, chosen_info = weighted_random_choice(candidates, ages)
+
                     devent = create_event(
                         header_type="D",
                         order_ref_num=chosen_order_ref,
@@ -177,6 +215,7 @@ def generate_orders_injected_cancels(
                         price=0
                     )
                     final_events.append(devent)
+                    current_event_index += 1
 
                     chosen_info["remaining_shares"] = 0
                     chosen_info["deleted"] = True
@@ -190,7 +229,9 @@ def generate_orders_injected_cancels(
         writer.writerows(final_events)
 
     print(f"Generated file: {output_csv_path}")
-    print("Adds have ascending order_ref_num, prices are linearly interpolated + noise, X/E/D are interspersed.")
+    print("Add events are interleaved in a round-robin across config rows, with random X/E/D in between.")
+    print("Full deletes (D) are now biased to remove older orders first.")
+
 # Example usage
 if __name__ == "__main__":
     config_csv = "data/config.csv"
@@ -199,7 +240,8 @@ if __name__ == "__main__":
     generate_orders_injected_cancels(
         config_csv_path=config_csv,
         output_csv_path=output_csv,
-        num_orders_per_config=40,
-        max_injected_events_after_each_add=2,
-        random_seed=42
+        num_orders_per_config=100,
+        max_injected_events_after_each_add=3,
+        # random_seed=42
+        random_seed=45
     )
