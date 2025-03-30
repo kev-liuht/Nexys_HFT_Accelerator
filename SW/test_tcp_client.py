@@ -138,16 +138,19 @@ def main():
                             
                             if proceed:
                                 # QR Decomposition and linear solver
-                                weights = ta_qr.solve(K)
-                                logging.info(f"QR: Solved weights: {weights}")
+                                weights, proceed_2 = ta_qr.solve(K)
+                                if proceed_2:
+                                    logging.info(f"QR: Solved weights: {weights}")
 
-                                # Order Generation
-                                output_blob = ta_og.order_gen(weights, market_prices)
-                                logging.info(f"Order Generation (hex): {output_blob.hex()}")
-                                
-                                # Send the order generation msg to the server
-                                client_socket.send(output_blob)
-                                print(f"Packet sent to server.")
+                                    # Order Generation
+                                    output_blob = ta_og.order_gen(weights, market_prices)
+                                    logging.info(f"Order Generation (hex): {output_blob.hex()}")
+
+                                    # Send the order generation msg to the server
+                                    client_socket.send(output_blob)
+                                    print(f"Packet sent to server.")
+                                else:
+                                    logging.info("division by zero occured")
                             order_count = 0
 
                 data = data[2 + length :]

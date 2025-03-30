@@ -8,6 +8,9 @@ import sys
 import time
 import threading
 import select
+import argparse
+import csv
+import subprocess
 
 from ouch_parser import OUCHParser
 
@@ -19,7 +22,8 @@ logging.basicConfig(level=LOGGING_LEVEL)
 DATA_PATH = Path('data')
 SOURCE_FILE_ZIPPED = '01302019.NASDAQ_ITCH50.gz'  # Example zipped file
 SOURCE_FILE = 'output.bin'                       # Our filtered file
-
+CSV_LOGFILE = 'data/ouch_events.csv'
+ABSOLUTE_GUI_PATH = r"E:\Nexys_HFT_Accelerator\SW\GUI.py"
 # Ensure data directory exists
 DATA_PATH.mkdir(parents=True, exist_ok=True)
 FILE_NAME = DATA_PATH / SOURCE_FILE
@@ -90,42 +94,51 @@ def read_messages(file_path):
     return messages
 
 def handle_incoming_message(message):
-    """
-    Handles an incoming message from the client.
-    Decodes the message using the OUCHParser and logs the decoded message.
-    """
     if len(message) != 196:
         logging.warning(f"Expected 196 bytes but got {len(message)}")
         return
 
-    # Extract the first 4 bytes as the portfolio number
     portfolio_number = int.from_bytes(message[:4], 'big')
-    logging.info(f"Portfolio number: {portfolio_number/10000}")
-    # Proceed to parse every 49 bytes of the remaining data
+    logging.info(f"Portfolio number: {portfolio_number / 10000}")
+
     parser = OUCHParser()
     chunk_data = message[4:]
     chunk_size = 48
     for i in range(0, len(chunk_data), chunk_size):
-        chunk = chunk_data[i:i+chunk_size]
+        chunk = chunk_data[i:i + chunk_size]
         if len(chunk) < chunk_size:
             logging.warning(f"Incomplete OUCH message of size {len(chunk)}")
             break
+
         message_type_code = chunk[:1]
         message_data = chunk[1:]
         decoded_message = parser.decode_message(message_type_code, message_data)
+
         if decoded_message is not None:
-            # parser.print_human_readable_message(decoded_message)
-            # example of using the decoded message
-            logging.info(f"OUCH ENTER ORDER MESSAGE: {decoded_message.Symbol}: Side={decoded_message.Side}, Quantity={decoded_message.Quantity}, Price={decoded_message.Price}")
-            # logging.info(f"OUCH message Received: {decoded_message}")
+            # If this is an ENTER ORDER message
+            # Log to console
+
+
+            logging.info(f"OUCH ENTER ORDER MESSAGE: {decoded_message.Symbol}: "
+                         f"Side={decoded_message.Side}, Quantity={decoded_message.Quantity}, Price={decoded_message.Price}")
+
+            # Also append to CSV
+            with open(CSV_LOGFILE, mode='a', newline='') as f:
+                writer = csv.writer(f)
+                now = datetime.now().isoformat()
+                portfolio_str = str(portfolio_number / 10000)
+                writer.writerow([
+                    now,
+                    portfolio_str,
+                    decoded_message.Symbol,
+                    decoded_message.Side,
+                    decoded_message.Quantity,
+                    decoded_message.Price
+                ])
+
         else:
             logging.warning(f"Unknown message type: {message_type_code}")
 
-
-
-
-    # print(f"Received message: {message!r}")
-    # print(f"Message length: {len(message)}")
 
 def receive_nonblocking(conn):
     """
@@ -167,6 +180,26 @@ def main():
     - Starts a thread to non-blockingly receive incoming messages from the client.
     - Pauses and waits for user [ENTER] before sending the final message.
     """
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--monitor', action='store_true')
+    args = parser.parse_args()
+
+    # Create CSV with header
+    with open(CSV_LOGFILE, mode='w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(["Timestamp", "Portfolio", "Symbol", "Side", "Quantity", "Price"])
+
+    # If monitor => spawn monitor.py
+    monitor_process = None
+    if args.monitor:
+        monitor_process = subprocess.Popen(
+            [sys.executable, "GUI.py", "--csv", CSV_LOGFILE, "--interval", "1.0"]
+        )
+
+
+
+
     # Prepare TCP server
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow immediate reuse
@@ -241,6 +274,13 @@ def main():
 
             conn.close()
             print("Connection closed.")
+
+    # Now run your TCP server loop
+    # ...
+    # end of main
+    # If we spawned a monitor, kill it on exit
+    if monitor_process is not None:
+        monitor_process.terminate()
 
 if __name__ == "__main__":
     main()
