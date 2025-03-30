@@ -333,7 +333,7 @@ class OrderBookManager:
         self.stock_order_book = StockOrderBook()
         self.initialized = True
         self.num_new_order = 0
-        self.publish_threshold = 20  # Publish snapshot after 20 new "add" calls
+        self.publish_threshold = 10  # Publish snapshot after 10 new "add" calls
 
     def process_message_136bit(self, in_data):
         """

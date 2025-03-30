@@ -36,10 +36,16 @@ if not FILE_NAME.exists():
     sys.exit(1)
 
 # TCP SERVER CONFIG
-# HOST = '192.168.1.11'
-# PORT = 22
-HOST = 'localhost'
-PORT = 22
+def get_host():
+    while True:
+        user_input = input("Select environment: (1) FPGA or (2) SW? ")
+        if user_input.strip() == "1":
+            return '192.168.1.11'
+        elif user_input.strip() == "2":
+            return 'localhost'
+        else:
+            print("Invalid selection. Please enter 1 for FPGA or 2 for SW.")
+
 def reverse_endian_bytes(data: bytes) -> bytes:
     if len(data) % 4 != 0:
         raise ValueError("Input length must be divisible by 4")
@@ -175,6 +181,9 @@ def main():
     - Starts a thread to non-blockingly receive incoming messages from the client.
     - Pauses and waits for user [ENTER] before sending the final message.
     """
+    HOST = get_host()
+    PORT = 22
+    print(f"Connecting to HOST: {HOST} on PORT: {PORT}")
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--monitor', action='store_true')

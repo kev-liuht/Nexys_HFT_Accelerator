@@ -134,7 +134,7 @@ void order_gen_axis(
         axis_word_t in_weight_val = in_stream_weights.read();
         float val = apuint32_to_float(in_weight_val.data);
         //weight_vals[i] = hls::isnan(val) ? latched_weights[i] : val;
-        if (val > 1 || val < 0) {
+        if (val > 1.0 || val < 0.0) {
         	return; // return if in_stream weights are invalid, skip cycle
         }
         weight_vals[i] = val;
