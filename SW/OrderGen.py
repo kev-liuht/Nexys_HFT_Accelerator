@@ -22,7 +22,7 @@ class OrderGenerator:
         self.userRefNum = 1
         self.latched_weights = [0.0, 0.0, 0.0, 0.0]
         # Static symbols for each stock (8 characters, padded)
-        self.symbols = ["AAPL    ", "NVDA    ", "MSFT    ", "INTC    "]
+        self.symbols = ["AMD_    ", "JPM_    ", "CUST    ", "PG__    "]
         # Dummy ClOrdID as in the HLS code (14 characters)
         self.dummyClOrdID = "CLORD_ID001XXX"
 

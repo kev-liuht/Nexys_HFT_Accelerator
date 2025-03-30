@@ -36,10 +36,10 @@ if not FILE_NAME.exists():
     sys.exit(1)
 
 # TCP SERVER CONFIG
-HOST = '192.168.1.11'
-PORT = 22
-# HOST = 'localhost'
+# HOST = '192.168.1.11'
 # PORT = 22
+HOST = 'localhost'
+PORT = 22
 def reverse_endian_bytes(data: bytes) -> bytes:
     if len(data) % 4 != 0:
         raise ValueError("Input length must be divisible by 4")
