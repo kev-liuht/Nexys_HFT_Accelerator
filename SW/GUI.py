@@ -5,11 +5,6 @@ import argparse
 import os
 
 def read_ouch_csv(csv_path):
-    """
-    Reads the entire CSV of OUCH events.
-    Returns a DataFrame with columns:
-      Timestamp, Portfolio, Symbol, Side, Quantity, Price
-    """
     if not os.path.isfile(csv_path):
         # Return empty DataFrame if not found
         return pd.DataFrame(columns=["Timestamp","Portfolio","Symbol","Side","Quantity","Price"])
@@ -17,15 +12,6 @@ def read_ouch_csv(csv_path):
     return df
 
 def compute_portfolio(df):
-    """
-    Given a DataFrame of 'Enter Order' events,
-    compute final net holdings (shares) of each symbol.
-
-    We'll assume:
-     - 'B' => buy => shares += Quantity
-     - 'S' => sell => shares -= Quantity
-     - This function does NOT track partial fills or realized P/L.
-    """
     holdings = {}
     for _, row in df.iterrows():
         symbol = row["Symbol"]
@@ -45,32 +31,25 @@ def compute_portfolio(df):
 
     return holdings
 
-def plot_holdings(holdings):
+def plot_holdings(ax, holdings):
     """
-    Bar chart of net shares by symbol (current snapshot).
+    Bar chart of net shares by symbol (current snapshot),
+    drawn on the given Axes object 'ax'.
     """
+    ax.clear()
+    ax.set_title("Current Holdings by Symbol")
+    ax.set_xlabel("Symbol")
+    ax.set_ylabel("Net Shares")
+
     if not holdings:
-        print("No holdings to plot.")
+        ax.text(0.5, 0.5, "No holdings", ha="center", va="center", transform=ax.transAxes)
         return
 
     symbols = list(holdings.keys())
     share_counts = [holdings[s]["shares"] for s in symbols]
-
-    plt.bar(symbols, share_counts)
-    plt.title("Current Holdings by Symbol")
-    plt.xlabel("Symbol")
-    plt.ylabel("Net Shares")
+    ax.bar(symbols, share_counts)
 
 def compute_holdings_over_time(df):
-    """
-    Builds a DataFrame indexed by Timestamp with columns = symbols,
-    representing net shares over time.
-
-    Steps:
-      1) Convert 'Timestamp' to datetime
-      2) Sort by time
-      3) Accumulate net shares after each trade row
-    """
     if df.empty:
         return pd.DataFrame()
 
@@ -94,7 +73,6 @@ def compute_holdings_over_time(df):
         else:  # side == "S"
             running_shares[symbol] -= qty
 
-        # snapshot after this row
         snapshot_dict = dict(running_shares)  # copy current state
         snapshot_dict["Timestamp"] = row["Timestamp"]
         snapshots.append(snapshot_dict)
@@ -103,32 +81,28 @@ def compute_holdings_over_time(df):
     history_df = history_df.set_index("Timestamp").fillna(0)
     return history_df
 
-def plot_portfolio_over_time(history_df):
-    """
-    Plots lines of net shares over time for each symbol.
-    """
+def plot_portfolio_over_time(ax, history_df):
+    ax.clear()
+    ax.set_title("Net Shares Over Time")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Shares")
+
     if history_df.empty:
-        print("No time history to plot.")
+        ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
         return
 
     for symbol in history_df.columns:
-        plt.plot(history_df.index, history_df[symbol], label=symbol)
+        ax.plot(history_df.index, history_df[symbol], label=symbol)
+    ax.legend(loc="best")
 
-    plt.title("Net Shares Over Time")
-    plt.xlabel("Time")
-    plt.ylabel("Shares")
-    plt.legend(loc="best")
+def plot_total_portfolio(ax, df):
+    ax.clear()
+    ax.set_title("Total Portfolio Value Over Time")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Portfolio ($)")
 
-def plot_total_portfolio(df):
-    """
-    Plots the 'Portfolio' column over time as a single line.
-    We assume the CSV file's 'Portfolio' column is your total
-    holdings in dollars at each row.
-
-    If your 'Portfolio' column is instead a code/ID, adjust accordingly.
-    """
     if df.empty:
-        print("No portfolio data to plot.")
+        ax.text(0.5, 0.5, "No portfolio data", ha="center", va="center", transform=ax.transAxes)
         return
 
     df2 = df.copy()
@@ -136,20 +110,12 @@ def plot_total_portfolio(df):
     df2.sort_values("Timestamp", inplace=True)
 
     # Convert Portfolio to float (if needed)
-    df2["Portfolio"] = df2["Portfolio"].astype(float)
+    df2["Portfolio"] = df2["Portfolio"].astype(float, errors="ignore")
 
-    plt.plot(df2["Timestamp"], df2["Portfolio"], label="Total Portfolio")
-    plt.title("Total Portfolio Value Over Time")
-    plt.xlabel("Time")
-    plt.ylabel("Portfolio ($)")
-    plt.legend(loc="best")
+    ax.plot(df2["Timestamp"], df2["Portfolio"], label="Total Portfolio")
+    ax.legend(loc="best")
 
 def compute_prices_over_time(df):
-    """
-    For each Symbol, track how its Price changes over time and
-    build a time series DataFrame. Each row is the timestamp of
-    a new event, with columns for each symbol's most recent price.
-    """
     if df.empty:
         return pd.DataFrame()
 
@@ -157,47 +123,39 @@ def compute_prices_over_time(df):
     df["Timestamp"] = pd.to_datetime(df["Timestamp"])
     df.sort_values("Timestamp", inplace=True)
 
-    # Keep track of the most recent price for each symbol
     last_prices = {}
     snapshots = []
 
     for _, row in df.iterrows():
         symbol = row["Symbol"]
         price  = float(row["Price"])
-
-        # Update the current symbol's latest price
         last_prices[symbol] = price
 
-        # Record a snapshot of all known prices so far
         snapshot_dict = dict(last_prices)
         snapshot_dict["Timestamp"] = row["Timestamp"]
         snapshots.append(snapshot_dict)
 
     price_df = pd.DataFrame(snapshots)
     price_df = price_df.set_index("Timestamp")
-    # Forward-fill in case we want a continuous line
+    # Forward-fill
     price_df = price_df.fillna(method="ffill").fillna(0)
     return price_df
 
-def plot_price_over_time(price_df):
-    """
-    Line chart showing each symbol's price over time, but ONLY
-    for data points above $100. Points at or below $100 are excluded.
-    """
+def plot_price_over_time(ax, price_df):
+    ax.clear()
+    ax.set_title("Symbol Prices Over Time (Above $100)")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Price")
+
     if price_df.empty:
-        print("No price data to plot.")
+        ax.text(0.5, 0.5, "No price data", ha="center", va="center", transform=ax.transAxes)
         return
 
     for symbol in price_df.columns:
-        # Create a mask that selects rows where price_df[symbol] is > 100
         mask = price_df[symbol] > 100
-        # Plot only the subset of data above $100
-        plt.plot(price_df.index[mask], price_df[symbol][mask], label=symbol)
+        ax.plot(price_df.index[mask], price_df[symbol][mask], label=symbol)
 
-    plt.title("Symbol Prices Over Time ")
-    plt.xlabel("Time")
-    plt.ylabel("Price")
-    plt.legend(loc="best")
+    ax.legend(loc="best")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -205,8 +163,22 @@ def main():
     parser.add_argument("--interval", type=float, default=2.0, help="Polling interval in seconds.")
     args = parser.parse_args()
 
-    plt.ion()  # interactive mode
-    plt.show()
+    # Turn on interactive mode
+    plt.ion()
+
+    # Create two figures: fig1 for the first three charts, fig2 for price-over-time
+    fig1 = plt.figure("Main Figures", figsize=(8, 10))
+    fig2 = plt.figure("Price Over Time", figsize=(8, 4))
+
+    # Create Axes in fig1 (3 subplots stacked vertically)
+    ax1 = fig1.add_subplot(3,1,1)  # holdings
+    ax2 = fig1.add_subplot(3,1,2)  # net shares over time
+    ax3 = fig1.add_subplot(3,1,3)  # total portfolio over time
+
+    # Create Axes in fig2 (just 1 subplot)
+    ax4 = fig2.add_subplot(1,1,1)  # price-over-time
+
+    plt.show()  # Show both windows
 
     last_count = 0  # how many rows we processed last time
 
@@ -219,7 +191,7 @@ def main():
             print(f"Detected {row_count - last_count} new rows, updating plots...")
             last_count = row_count
 
-            # 1) Compute the final net holdings for bar chart
+            # 1) Compute final net holdings
             holdings = compute_portfolio(df)
 
             # 2) Compute net shares over time
@@ -228,36 +200,20 @@ def main():
             # 3) Compute prices over time
             price_df = compute_prices_over_time(df)
 
-            # Clear the figure
-            plt.clf()
+            # Update Figure 1
+            plt.figure(fig1.number)
+            plot_holdings(ax1, holdings)
+            plot_portfolio_over_time(ax2, history_df)
+            plot_total_portfolio(ax3, df)
+            fig1.tight_layout()
 
-            # ----------------------------
-            # Subplot (1) - Current Holdings (bar chart)
-            # ----------------------------
-            plt.subplot(4, 1, 1)
-            plot_holdings(holdings)
+            # Update Figure 2
+            plt.figure(fig2.number)
+            plot_price_over_time(ax4, price_df)
+            fig2.tight_layout()
 
-            # ----------------------------
-            # Subplot (2) - Net Shares Over Time (line chart)
-            # ----------------------------
-            plt.subplot(4, 1, 2)
-            plot_portfolio_over_time(history_df)
-
-            # ----------------------------
-            # Subplot (3) - Total Portfolio Over Time (line chart)
-            # 'Portfolio' column in the CSV
-            # ----------------------------
-            plt.subplot(4, 1, 3)
-            plot_total_portfolio(df)
-
-            # ----------------------------
-            # Subplot (4) - Price Over Time (line chart)
-            # ----------------------------
-            plt.subplot(4, 1, 4)
-            plot_price_over_time(price_df)
-
-            plt.tight_layout()
-            plt.pause(0.01)  # refresh
+            # Refresh both figures
+            plt.pause(0.01)
 
         time.sleep(args.interval)
 
