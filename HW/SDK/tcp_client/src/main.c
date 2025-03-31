@@ -459,9 +459,9 @@ static err_t tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
 
 
 	// ** Alternative Order Gen Polling here: **
-	uint32_t send_buf[TCP_SEND_BUF_UINT32_SIZE];
-	u8_t apiflags = TCP_WRITE_FLAG_COPY;
-	int invalid_flag = 0;
+	// uint32_t send_buf[TCP_SEND_BUF_UINT32_SIZE];
+	// u8_t apiflags = TCP_WRITE_FLAG_COPY;
+	// int invalid_flag = 0;
 
 	// check if there is data to send
 	// ngetfsl(send_buf[0], 0);
