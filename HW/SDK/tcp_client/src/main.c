@@ -396,35 +396,35 @@ static err_t tcp_client_connected(void *arg, struct tcp_pcb *tpcb, err_t err)
 
 	//ADD CODE HERE to do when connection established
 
-	//Just send a single packet
-	 u8_t apiflags = TCP_WRITE_FLAG_COPY | TCP_WRITE_FLAG_MORE;
-	 char send_buf[5];
-	 u32_t i;
+	// //Just send a single packet
+	//  u8_t apiflags = TCP_WRITE_FLAG_COPY | TCP_WRITE_FLAG_MORE;
+	//  char send_buf[5];
+	//  u32_t i;
 
-	 for(i = 0; i < 5-1; i = i + 1)
-	 {
-	 	send_buf[i] = i+'a';
-	 }
-	 send_buf[5-1] = '\n';
+	//  for(i = 0; i < 5-1; i = i + 1)
+	//  {
+	//  	send_buf[i] = i+'a';
+	//  }
+	//  send_buf[5-1] = '\n';
 
-	//Loop until enough room in buffer (should be right away)
-	while (tcp_sndbuf(c_pcb) < TCP_SEND_BUFSIZE);
+	// //Loop until enough room in buffer (should be right away)
+	// while (tcp_sndbuf(c_pcb) < TCP_SEND_BUFSIZE);
 
-	//Enqueue some data to send
-	err = tcp_write(c_pcb, send_buf, TCP_SEND_BUFSIZE, apiflags);
-	if (err != ERR_OK) {
-		xil_printf("TCP client: Error on tcp_write: %d\n", err);
-		return err;
-	}
+	// //Enqueue some data to send
+	// err = tcp_write(c_pcb, send_buf, TCP_SEND_BUFSIZE, apiflags);
+	// if (err != ERR_OK) {
+	// 	xil_printf("TCP client: Error on tcp_write: %d\n", err);
+	// 	return err;
+	// }
 
-	//send the data packet
-	err = tcp_output(c_pcb);
-	if (err != ERR_OK) {
-		xil_printf("TCP client: Error on tcp_output: %d\n",err);
-		return err;
-	}
+	// //send the data packet
+	// err = tcp_output(c_pcb);
+	// if (err != ERR_OK) {
+	// 	xil_printf("TCP client: Error on tcp_output: %d\n",err);
+	// 	return err;
+	// }
 
-	xil_printf("Packet data sent\n");
+	// xil_printf("Packet data sent\n");
 
 	//END OF ADDED CODE
 
@@ -459,9 +459,9 @@ static err_t tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
 
 
 	// ** Alternative Order Gen Polling here: **
-	uint32_t send_buf[TCP_SEND_BUF_UINT32_SIZE];
-	u8_t apiflags = TCP_WRITE_FLAG_COPY;
-	int invalid_flag = 0;
+	// uint32_t send_buf[TCP_SEND_BUF_UINT32_SIZE];
+	// u8_t apiflags = TCP_WRITE_FLAG_COPY;
+	// int invalid_flag = 0;
 
 	// check if there is data to send
 	// ngetfsl(send_buf[0], 0);
