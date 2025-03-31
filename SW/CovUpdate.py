@@ -26,8 +26,8 @@ class CovarianceUpdateStack:
             # Compute returns for each stock
             for i in range(self.num_stocks):
                 prev_price = self.last_prices[i]
-                # returns[i] = (market_prices[i] - prev_price) / prev_price # x_i = (P_current - P_prev) / P_prev
-                returns[i] = math.log(market_prices[i]/prev_price)
+                returns[i] = (market_prices[i] - prev_price) / prev_price # x_i = (P_current - P_prev) / P_prev
+                # returns[i] = math.log(market_prices[i]/prev_price)
 
             # Use incremental formula
             for i in range(self.num_stocks):
