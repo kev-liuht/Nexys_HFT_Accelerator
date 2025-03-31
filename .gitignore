@@ -41,7 +41,12 @@
 *_synth_*
 
 .jobs
-
+*/hls_ips/cov_update_hls
+*/hls_ips/dummy_burst_hls
+*/hls_ips/order_book_hls
+*/hls_ips/order_gen_hls
+*/hls_ips/qr_decomp_lin_solv_hls
+*/hls_ips/ta_parser_hls
 ### project synth
 */*.runs/synth*/*.xml
 */*.runs/synth*/*.txt
