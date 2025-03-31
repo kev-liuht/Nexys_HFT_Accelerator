@@ -250,7 +250,7 @@ def main():
 
                 # sleep time for send 
                 # (can be modified for faster sends, but will potentialy crash the system)
-                time.sleep(0.1)
+                time.sleep(0.06)
 
             # # Now send the LAST message, waiting for user input first
             # if message_index % 18 == 0:
