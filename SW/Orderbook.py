@@ -333,7 +333,7 @@ class OrderBookManager:
         self.stock_order_book = StockOrderBook()
         self.initialized = True
         self.num_new_order = 0
-        self.publish_threshold = 10  # Publish snapshot after 10 new "add" calls
+        self.publish_threshold = 20  # Publish snapshot after 20 new "add" calls
 
     def process_message_136bit(self, in_data):
         """
@@ -383,15 +383,15 @@ class OrderBookManager:
                 self.stock_order_book.cancel_order(stock_id, order_ref_num, 0xFFFFFFFF)
 
         # Optionally publish after threshold
-        if self.num_new_order >= self.publish_threshold:
-            self.num_new_order = 0
-            snap = self.stock_order_book.publish_snapshot()
-            # Here, you could do whatever you want with the snapshot;
-            # for now, we can just print or return it. We'll just print.
-            print("=== Publishing Snapshot ===")
-            for entry in snap:
-                print(entry)
-            print("===========================")
+        # if self.num_new_order >= self.publish_threshold:
+        #     self.num_new_order = 0
+        #     snap = self.stock_order_book.publish_snapshot()
+        #     # Here, you could do whatever you want with the snapshot;
+        #     # for now, we can just print or return it. We'll just print.
+        #     print("=== Publishing Snapshot ===")
+        #     for entry in snap:
+        #         print(entry)
+        #     print("===========================")
 
     # Provide direct ports for manual usage as well,
     # if you prefer not to pack them into 136-bit messages:
@@ -403,10 +403,10 @@ class OrderBookManager:
         self.stock_order_book.add_order(stock_id, order_id, price, quantity, side)
         self.num_new_order += 1
         # Possibly auto-publish
-        if self.num_new_order >= self.publish_threshold:
-            self.num_new_order = 0
-            return self.stock_order_book.publish_snapshot()
-        return None
+        # if self.num_new_order >= self.publish_threshold:
+        #     self.num_new_order = 0
+        #    return self.stock_order_book.publish_snapshot()
+        # return None
 
     def cancel_order(self, stock_id, order_id, cancel_qty):
         """

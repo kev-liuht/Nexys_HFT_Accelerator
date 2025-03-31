@@ -1,5 +1,4 @@
 #include <iostream>
-#include <cmath>
 #include <hls_stream.h>
 #include <ap_axi_sdata.h>
 #include <ap_int.h>
@@ -75,7 +74,8 @@ extern "C" void cov_update(
     // Compute returns for each stock
     for (int i = 0; i < NUM_STOCKS; i++) {
 #pragma HLS UNROLL factor=2
-        returns[i] = (market_prices[i] - last_prices[i]) / last_prices[i];
+        // returns[i] = (market_prices[i] - last_prices[i]) / last_prices[i];
+        returns[i] = log(market_prices[i] / last_prices[i]);
         last_returns[i] = (float(num_updates) * last_returns[i] + returns[i]) / float(N);  // Incremental mean update
     }
 
