@@ -130,9 +130,7 @@ static void cancel_order(OrderList &ol, TreeOrderBook &ob, ap_uint<32> order_id,
     ap_uint<32> old_qty = ol.order_quantity[order_id];
     ap_uint<32> remove_qty = (cancel_qty == 0xFFFFFFFF) ? old_qty : ((cancel_qty > old_qty) ? old_qty : cancel_qty);
 
-    ap_uint<32> aggregated_qty = ob.price_quantity[idx];
-    ap_uint<32> final_qty = (aggregated_qty >= remove_qty) ? (ap_uint<32>)(aggregated_qty - remove_qty) : ap_uint<32>(0x00000000);
-    ob.price_quantity[idx] = final_qty;
+    ob.price_quantity[idx] -= remove_qty;
     bubble_up(ob, idx);
 
     if (remove_qty == old_qty) {
