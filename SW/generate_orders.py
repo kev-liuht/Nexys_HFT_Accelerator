@@ -241,7 +241,7 @@ if __name__ == "__main__":
         config_csv_path=config_csv,
         output_csv_path=output_csv,
         num_orders_per_config=100,
-        max_injected_events_after_each_add=3,
+        max_injected_events_after_each_add=0,
         # random_seed=42
         random_seed=45
     )
