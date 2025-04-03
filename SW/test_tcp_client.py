@@ -130,11 +130,10 @@ def main():
                             
                             # TA Parser
                             market_prices = ta_parser.update(snapshot)
-                            market_prices2 = ta_parser.update2(snapshot)
                             logging.info(f"TA Parser: {market_prices}")
 
                             # Covariance Update
-                            K, proceed = ta_cov.update(market_prices2)
+                            K, proceed = ta_cov.update(market_prices)
                             logging.info(f"Covariance Matrix: {K}\tProceed: {proceed}")
                             
                             if proceed:
@@ -144,7 +143,7 @@ def main():
                                     logging.info(f"QR: Solved weights: {weights}")
 
                                     # Order Generation
-                                    output_blob = ta_og.order_gen(weights, market_prices2, market_prices)
+                                    output_blob = ta_og.order_gen(weights, market_prices)
                                     logging.info(f"Order Generation (hex): {output_blob.hex()}")
 
                                     # Send the order generation msg to the server

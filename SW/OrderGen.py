@@ -103,7 +103,7 @@ class OrderGenerator:
         # msg[47] is already 0
         return msg
 
-    def order_gen(self, weight_vals, stock_prices, real_prices):
+    def order_gen(self, weight_vals, stock_prices):
         """
         Reads new weight and price values, computes the new portfolio value using
         the latest prices, and then generates OUCH orders based on the new weight vector.
@@ -165,7 +165,7 @@ class OrderGenerator:
                 side = 'N'  # No action
                 quantity = 0
             # Pack the order message (48 bytes) for this stock.
-            order_msg = self.pack_order(self.userRefNum, side, quantity, self.symbols[i], real_prices[i])
+            order_msg = self.pack_order(self.userRefNum, side, quantity, self.symbols[i], stock_prices[i])
             self.userRefNum += 1
             
             # Append the order message to output.
