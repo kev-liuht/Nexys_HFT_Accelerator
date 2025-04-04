@@ -15,7 +15,7 @@ struct axis_word_t {
 
 // Converts 32-bit data to float
 float convert_to_float(const ap_uint<32> &bits) {
-    return static_cast<float>(bits.to_uint()) / 10000.0f;
+    return static_cast<float>(bits.to_uint());
 }
 
 // Converts float to 32-bit data using bitwise casting
@@ -68,8 +68,8 @@ extern "C" void ta_parser(
         // Convert prices and quantities
         for (int j = 0; j < NUM_LEVELS; j++) {
 #pragma HLS PIPELINE II=1
-            ask_prices[j] = convert_to_float(price_ask[i][j].data);
-            bid_prices[j] = convert_to_float(price_bid[i][j].data);
+            ask_prices[j] = convert_to_float(price_ask[i][j].data) / 10000.0f;
+            bid_prices[j] = convert_to_float(price_bid[i][j].data) / 10000.0f;
             ask_quantities[j] = convert_to_float(quantity_ask[i][j].data);
             bid_quantities[j] = convert_to_float(quantity_bid[i][j].data);
         }
